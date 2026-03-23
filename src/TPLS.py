@@ -1,6 +1,6 @@
 import random
 import copy
-from src.solver import calculateFitness
+from src.solver import calculateFitness, calculateFitnessParallel
 from src.model import movements
 from src.utils import getTotalDemand, getStateTuple
 
@@ -75,7 +75,7 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
         except ValueError:
             pass
 
-    tabuPoints = calculateFitness(cdList, clientList, K, TH, tabuState)
+    tabuPoints, solverTime = calculateFitness(cdList, clientList, K, TH, tabuState)
     exploredTabuPoints.extend(tabuPoints)
     
     for tabuPoint in exploredTabuPoints:
@@ -88,7 +88,7 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
         if validTabuPoint:
             validTabuPoints.append(tabuPoint)
 
-    return validTabuPoints
+    return validTabuPoints, solverTime
 
 def getNeighbor(cdList, nonDominatedPoints, tabu, movementSize, totalDemand, K, TH):
     neighborhood = []
@@ -175,6 +175,7 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
         nonDominated = True
 
         # Se busca el movimiento que se hizo para llegar a ese punto
+        movements = None
         for movement in neighborMovements:
             if evaluatedPoint.state == movement.changeState:
                 movements = movement.moves
@@ -182,16 +183,22 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
         
         # Se compara con cada punto del frente de Pareto actual
         for referencePoint in pointsList:
+            if referencePoint in pointsToRemove:
+                print (f"El punto {referencePoint.state} ya está marcado para eliminación, saltando comparación.")
+                continue
+
             # Si el nuevo punto domina fuertemente o debilmente a un punto del frente actual, se agrega a la lista de nuevos puntos no dominados 
             # y se elimina el punto dominado del frente actual
             if (evaluatedPoint.objValueX >= referencePoint.objValueX and evaluatedPoint.objValueY >= referencePoint.objValueY) and evaluatedPoint != referencePoint:
+                print (f"El punto {evaluatedPoint.state} domina a {referencePoint.state}")
+                print (f"Infra: {evaluatedPoint.objValueX} vs {referencePoint.objValueX}, Trans: {evaluatedPoint.objValueY} vs {referencePoint.objValueY}")
                 nonDominated = False
                 break
 
         if not nonDominated:
-            foundNonDominated = True
             pointsToRemove.append(evaluatedPoint)
         else:
+            foundNonDominated = True
             if movements is not None:
                 for move in movements.keys():
                     if movements[move] == 1:
@@ -233,7 +240,8 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
     totalDemand = getTotalDemand(clientList)
     nonDominatedPoints = []
     fixCdList = getStateTuple(cdList)
-    nonDominatedPoints.extend(calculateFitness(cdList, clientList, K, TH, [fixCdList]))
+    aux, solverTime = calculateFitness(cdList, clientList, K, TH, [fixCdList])
+    nonDominatedPoints.extend(aux)
 
     foundPoints = []
     foundPoints.extend(nonDominatedPoints)
@@ -243,6 +251,8 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
 
     tabu = createTabuList(cdList)
     addedTabus = []
+
+    solverTime = 0
 
     while i < iterationLimit:
         neighborhood, tabuNeighborhood, neighborMovements = getNeighbor(cdList, nonDominatedPoints, tabu, 
@@ -255,16 +265,18 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
         print (f"Iteración {i+1}/{iterationLimit} - Vecinos generados: {len(neighborhood)} - Vecinos tabu: {len(tabuNeighborhood)}")
 
         if len(tabuNeighborhood) > 0:
-            validTabuPoints = AspirationCriteria(tabuNeighborhood, nonDominatedPoints, foundPoints, cdList, clientList, K, TH)
+            validTabuPoints, time = AspirationCriteria(tabuNeighborhood, nonDominatedPoints, foundPoints, cdList, clientList, K, TH)
+            solverTime += time
 
         notFound, alreadyFound = checkIfFound(neighborhood, foundPoints)
 
         print (f"Iteración {i+1}/{iterationLimit} - Vecinos encontrados: {len(notFound) + len(alreadyFound)}, Vecinos nuevos: {len(notFound)}")
 
-        paretoPoints = calculateFitness(cdList, clientList, K, TH, notFound)
-        
+        paretoPoints, time  = calculateFitnessParallel(cdList, clientList, K, TH, notFound)
+        solverTime += time
+
         try:
-            if len(validTabuPoints):
+            if len(validTabuPoints) > 0:
                 paretoPoints.extend(validTabuPoints)
         except Exception as e:
             pass
@@ -275,18 +287,22 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
         for point in paretoPoints:
             print(f"state {point.state}, Infra: {point.objValueX}, Transport: {point.objValueY}")
 
-        nonDominatedPoints, foundNewNonDominated, tabuRate = checkDominance(paretoPoints, nonDominatedPoints, neighborMovements)
-
-        nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
+        if len(paretoPoints) > 0:
+            nonDominatedPoints, foundNewNonDominated, tabuRate = checkDominance(paretoPoints, nonDominatedPoints, neighborMovements)
+        else:
+            foundNewNonDominated = False
 
         if foundNewNonDominated:
             iterationwithoutImprovement = 0
-        else:
-            iterationwithoutImprovement += 1
-        
-        if iterationwithoutImprovement >= 3:
+        elif iterationwithoutImprovement >= 3:
             print("No se han encontrado nuevos puntos no dominados en las últimas 10 iteraciones, terminando búsqueda.")
             break
+        else:
+            iterationwithoutImprovement += 1
+            i += 1
+            continue
+        
+        nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
         
         sortedTabuRate = sorted(tabuRate.items(), key=lambda x: x[1], reverse=True)
         
@@ -307,4 +323,4 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
 
         i += 1
     
-    return nonDominatedPoints
+    return nonDominatedPoints, solverTime

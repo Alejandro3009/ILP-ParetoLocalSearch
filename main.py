@@ -4,6 +4,7 @@ import requests
 import matplotlib.pyplot as plt
 import sys
 import os
+from time import time
 from collections import deque
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -46,7 +47,7 @@ instancesDeepseek = [
 license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
 
 if __name__ == "__main__":
-    currentUrl = instancesGemini[0]
+    currentUrl = instancesGemini[2]
     currentInstance = ""
 
     print(f"Descargando archivo .dat desde Gist...")
@@ -59,12 +60,12 @@ if __name__ == "__main__":
         print(f"Error descargando: {e}")
 
     # 1. Load your data (using your existing functions)
-    if 1==2:
+    if 1==1:
         if currentInstance:
             cdList, clientList, K, TH = loadTextInstance(currentInstance)
             printSummary(cdList, clientList, K, TH)
     else:
-        cdList, clientList = loadJsonInstance("small1")
+        cdList, clientList = loadJsonInstance("medium2")
         K = 1.28
         TH = 1
         printSummary(cdList, clientList, K, TH)
@@ -75,13 +76,17 @@ if __name__ == "__main__":
 
     # 3. Run the search
     if 1==1:
-        finalParetoFront = tabuLocalParetoSearch(cdList, clientList, K, TH, 50, 3, int(len(cdList)/2), int(len(cdList)/4))
+        time0 = time()
+        finalParetoFront, solverTime = tabuLocalParetoSearch(cdList, clientList, K, TH, 50, 3, int(len(cdList)/2), int(len(cdList)/4))
+        time1 = time()
+        executionTime = time1 - time0
     else:
         finalParetoFront = paretoLocalSearch(cdList, clientList, K, TH, 50)
 
     # 4. Results
     for point in finalParetoFront:
         print(f"state {point.state}, Infra: {point.objValueX}, Transport: {point.objValueY}")
+    print(f"Total execution time: {executionTime:.2f} seconds (Solver time: {solverTime:.2f} seconds)")
 
     #5 Plotting and visualization
     if finalParetoFront:

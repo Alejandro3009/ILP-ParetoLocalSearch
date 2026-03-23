@@ -1,3 +1,5 @@
+import concurrent.futures
+from time import time
 from amplpy import AMPL, ampl_notebook
 from src.model import cd, client, paretoPoint, modelo
 
@@ -36,9 +38,47 @@ def instanceToAmpl(cdList, clientList, k, th):
 
     return "\n".join(lines)
 
+def rebalanceStates(state, cdList, asignacion, infra_cost):
+    k = [cd.fixedCost for cd in cdList]
+    for i in range(len(asignacion)):
+        if asignacion[i][1] == 0 and state[i] == 1:
+            state[i] = 0
+            infra_cost -= k[i]
+    return state, infra_cost
+
+def solve_single_state(args):
+    """Worker function: Solves one state in a private AMPL instance."""
+    state, cdList, clientList, K, TH = args
+    
+    # Each process MUST have its own AMPL object
+    worker_ampl = AMPL()
+    worker_ampl.eval(modelo)
+    worker_ampl.setOption("solver", "gurobi") 
+    worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
+    
+    # Set data and fix Z variables [cite: 71]
+    amplDataFix = instanceToAmpl(cdList, clientList, K, TH)
+    worker_ampl.eval(amplDataFix)
+    for i, val in enumerate(state):
+        worker_ampl.eval(f"fix Z[{i}] := {val};")
+
+    worker_ampl.solve()
+    
+    infra_cost = worker_ampl.get_variable("InfrastructureCost").value() 
+    trans_cost = worker_ampl.get_variable("TransportCost").value()
+    asignacion = worker_ampl.get_variable("D").get_values().toList()
+    
+    # Close session to free memory
+    worker_ampl.close()
+    
+    # Use your existing rebalance logic
+    new_state, new_infra = rebalanceStates(list(state), cdList, asignacion, infra_cost)
+    return paretoPoint(new_infra, trans_cost, tuple(new_state))
+
 def calculateFitness(cdList, clientList, K, TH, statesList):
     paretoPoints = []
 
+    time0 = time() 
     for state in statesList:
         amplDataFix = instanceToAmpl(cdList, clientList, K, TH)
 
@@ -55,6 +95,30 @@ def calculateFitness(cdList, clientList, K, TH, statesList):
 
         trans_cost = ampl.get_variable("TransportCost").value()
 
+        asignacion = ampl.get_variable("D").get_values().toList()
+
+        print("Asignacion:", asignacion)
+
+        state, infra_cost = rebalanceStates(list(state), cdList, asignacion, infra_cost)
+
+        print(state, infra_cost)
+
         paretoPoints.append(paretoPoint(infra_cost, trans_cost, tuple(state)))
 
-    return paretoPoints
+    time1 = time()
+    return paretoPoints, time1 - time0
+
+def calculateFitnessParallel(cdList, clientList, K, TH, statesList, max_workers=4):
+    """Parallel coordinator."""
+    time0 = time()
+    
+    # Prepare arguments for each worker
+    tasks = [(state, cdList, clientList, K, TH) for state in statesList]
+    
+    paretoPoints = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Map tasks to workers
+        paretoPoints = list(executor.map(solve_single_state, tasks))
+    
+    time1 = time()
+    return paretoPoints, time1 - time0
