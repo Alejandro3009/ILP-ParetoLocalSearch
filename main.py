@@ -11,8 +11,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from amplpy import AMPL, ampl_notebook
 from src.PLS import paretoLocalSearch
-from src.utils import loadJsonInstance, loadTextInstance, printSummary, randomSolution
+from src.utils import loadJsonInstance, loadTextInstance, printSummary, randomSolution, calcularHipervolumen
 from src.TPLS import tabuLocalParetoSearch
+from lexsrc.model import instanceToAmpl, mTransport, mInfrastructure
+from lexsrc.solver import solveInstance, solveEpsilon
 
 instancesChatGPT = [
     "https://gist.githubusercontent.com/athersoft/c6baed29465f509c315c2f5fa7db93b4/raw/393643d794fba167cfe9ec6a3c5c91c3a8cd1d48/80x40-chatgpt.dat",
@@ -59,65 +61,102 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error descargando: {e}")
 
-    # 1. Load your data (using your existing functions)
-    if 1==1:
+    # 1. Cargar las intancias (ya sea desde el json o de las urls)
+    if 1==2:
         if currentInstance:
             cdList, clientList, K, TH = loadTextInstance(currentInstance)
             printSummary(cdList, clientList, K, TH)
     else:
-        cdList, clientList = loadJsonInstance("medium2")
+        cdList, clientList = loadJsonInstance("small2")
         K = 1.28
         TH = 1
         printSummary(cdList, clientList, K, TH)
+        currentInstance = instanceToAmpl(cdList, clientList, K, TH)
 
-
-    # 2. Set an initial feasible state (e.g., all CDs open)
-    randomSolution(cdList, clientList)
-
-    # 3. Run the search
-    if 1==1:
-        time0 = time()
-        finalParetoFront, solverTime = tabuLocalParetoSearch(cdList, clientList, K, TH, 50, 3, int(len(cdList)/2), int(len(cdList)/4))
-        time1 = time()
-        executionTime = time1 - time0
-    else:
-        finalParetoFront = paretoLocalSearch(cdList, clientList, K, TH, 50)
-
-    # 4. Results
-    for point in finalParetoFront:
-        print(f"state {point.state}, Infra: {point.objValueX}, Transport: {point.objValueY}")
-    print(f"Total execution time: {executionTime:.2f} seconds (Solver time: {solverTime:.2f} seconds)")
-
-    #5 Plotting and visualization
-    if finalParetoFront:
-    # Extract objective values from the paretoPoint instances 
-    # objValueX = Infrastructure Cost, objValueY = Transport Cost
-        infra_costs = [p.objValueX for p in finalParetoFront]
-        trans_costs = [p.objValueY for p in finalParetoFront]
-
-        # Create the plot
-        plt.figure(figsize=(10, 6))
-        
-        # Plot individual points
-        plt.scatter(infra_costs, trans_costs, color='red', zorder=5, label='Pareto Optimal Points')
-
-        # Optional: Draw a line connecting the points to visualize the 'Frontier'
-        # We sort by Infrastructure Cost to ensure the line connects points in order
-        sorted_front = sorted(finalParetoFront, key=lambda p: p.objValueX)
-        x_line = [p.objValueX for p in sorted_front]
-        y_line = [p.objValueY for p in sorted_front]
-        plt.plot(x_line, y_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
-
-        # Labels and Titles
-        plt.title('Trade-off between Infrastructure and Transport Costs')
-        plt.xlabel('Infrastructure Cost ($)')
-        plt.ylabel('Transport Cost ($)')
-        plt.grid(True, linestyle=':', alpha=0.7)
-        plt.legend()
-
-        # Save the plot
-        plt.savefig('pareto_front_results.png')
-        print("Visualisation saved as 'pareto_front_results.png'")
-    else:
-        print("No solutions were found to plot.")
+    # 2. Obtener los puntos lexicográficos extremos para cada objetivo
+    transportMin, aux = solveInstance(currentInstance, mTransport)
+    aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
     
+    aux, infraMin = solveInstance(currentInstance, mInfrastructure)
+    transportMax, aux = solveInstance(currentInstance, mTransport, infraMin)
+
+    print(f"Punto X lexicográfico de infraestructura e inventario {transportMax}")
+    print(f"Punto Y lexicográfico de infraestructura e inventario {infraMin}")
+    print(f"Punto X lexicográfico de transporte: {transportMin}")
+    print(f"Punto Y lexicográfico de transporte: {infraMax}")
+
+    steps = 10
+    epsilonSteps = np.linspace(infraMin, infraMax, steps)
+    print(epsilonSteps)
+
+    paretoX = []
+    paretoY = []
+
+    for step in epsilonSteps:
+        transportCost, infraCost = solveEpsilon(currentInstance, mTransport, step)
+        if transportCost is not None:
+            paretoX.append(transportCost)
+            paretoY.append(infraCost)
+
+    # 3. Obtener una solución inicial aleatoria
+    randomSolution(cdList, clientList)
+    
+    # 4. Ejecutar la busqueda local
+    alpha = 0.9
+    while True:
+        if alpha == 1:
+            break
+        if 1==1:
+            time0 = time()
+            finalParetoFront, solverTime = tabuLocalParetoSearch(cdList, clientList, K, TH, 50, 3, int(len(cdList)/2), int(len(cdList)/4), alpha)
+            time1 = time()
+            executionTime = time1 - time0
+        else:
+            finalParetoFront = paretoLocalSearch(cdList, clientList, K, TH, 50)
+
+        # 5. Puntos no dominados encontrados y tiempo de ejecución
+        for point in finalParetoFront:
+            print(f"state {point.state}, Infra: {point.objValueX}, Transport: {point.objValueY}")
+        print(f"Total execution time: {executionTime:.2f} seconds (Solver time: {solverTime:.2f} seconds)")
+
+        # 6. Plotting y visualización de los resultados
+        if finalParetoFront:
+        # Extract objective values from the paretoPoint instances 
+        # objValueX = Infrastructure Cost, objValueY = Transport Cost
+            infra_costs = [p.objValueX for p in finalParetoFront]
+            trans_costs = [p.objValueY for p in finalParetoFront]
+
+            # Create the plot
+            plt.figure(figsize=(10, 6))
+            
+            # Plot individual points
+            plt.scatter(infra_costs, trans_costs, color='red', zorder=5, label='Pareto Optimal Points')
+
+            # Optional: Draw a line connecting the points to visualize the 'Frontier'
+            # We sort by Infrastructure Cost to ensure the line connects points in order
+            sorted_front = sorted(finalParetoFront, key=lambda p: p.objValueX)
+            x_line = [p.objValueX for p in sorted_front]
+            y_line = [p.objValueY for p in sorted_front]
+            plt.plot(x_line, y_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
+
+            # Plot the lexicographic points for reference
+            plt.plot(paretoX, paretoY, marker='o', linestyle='-', color='green')
+            plt.scatter([transportMin, transportMax], [infraMax, infraMin], c=['blue', 'red'], zorder=5)
+
+
+            # Labels and Titles
+            plt.title('Trade-off between Infrastructure and Transport Costs')
+            plt.xlabel('Infrastructure Cost ($)')
+            plt.ylabel('Transport Cost ($)')
+            plt.grid(True, linestyle=':', alpha=0.7)
+            plt.legend()
+            plt.show()
+
+            # Save the plot
+            plt.savefig('pareto_front_results.png')
+            print("Visualisation saved as 'pareto_front_results.png'")
+        else:
+            print("No solutions were found to plot.")
+        
+        alpha = 1
+        

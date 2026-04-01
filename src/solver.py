@@ -48,7 +48,7 @@ def rebalanceStates(state, cdList, asignacion, infra_cost):
 
 def solve_single_state(args):
     """Worker function: Solves one state in a private AMPL instance."""
-    state, cdList, clientList, K, TH = args
+    state, cdList, clientList, K, TH, alphaValue = args
     
     # Each process MUST have its own AMPL object
     worker_ampl = AMPL()
@@ -61,6 +61,8 @@ def solve_single_state(args):
     worker_ampl.eval(amplDataFix)
     for i, val in enumerate(state):
         worker_ampl.eval(f"fix Z[{i}] := {val};")
+
+    worker_ampl.param['Alpha'] = alphaValue
 
     worker_ampl.solve()
     
@@ -75,7 +77,7 @@ def solve_single_state(args):
     new_state, new_infra = rebalanceStates(list(state), cdList, asignacion, infra_cost)
     return paretoPoint(new_infra, trans_cost, tuple(new_state))
 
-def calculateFitness(cdList, clientList, K, TH, statesList):
+def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
     paretoPoints = []
 
     time0 = time() 
@@ -88,6 +90,8 @@ def calculateFitness(cdList, clientList, K, TH, statesList):
 
         for i, val in enumerate(state):
             ampl.eval(f"fix Z[{i}] := {val};")
+
+        ampl.param['Alpha'] = alphaValue
 
         ampl.solve()
         
@@ -108,12 +112,12 @@ def calculateFitness(cdList, clientList, K, TH, statesList):
     time1 = time()
     return paretoPoints, time1 - time0
 
-def calculateFitnessParallel(cdList, clientList, K, TH, statesList, max_workers=4):
+def calculateFitnessParallel(cdList, clientList, K, TH, statesList, max_workers=10, alphaValue=0.5):
     """Parallel coordinator."""
     time0 = time()
     
     # Prepare arguments for each worker
-    tasks = [(state, cdList, clientList, K, TH) for state in statesList]
+    tasks = [(state, cdList, clientList, K, TH, alphaValue) for state in statesList]
     
     paretoPoints = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:

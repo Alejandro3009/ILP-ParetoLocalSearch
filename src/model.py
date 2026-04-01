@@ -51,11 +51,13 @@ param HC{i in I};
 param LT{i in I};
 param K;
 param TH;
+param Alpha default 0.5; # Parámetro para ponderar los objetivos
 
 var Z{i in I} binary;
 var Y{i in I,j in J} binary;
 var D{i in I} >= 0;
 var U{i in I} >= 0;
+
 
 var QD{i in I} >= 0;
 var QU{i in I} >= 0;
@@ -68,7 +70,7 @@ var InfrastructureCost =
 var TransportCost = sum{i in I, j in J} TH * (RC[i] + TC[i,j]) * d[j] * Y[i,j];
 
 minimize TotalCost:
-    InfrastructureCost + TransportCost;
+    InfrastructureCost*Alpha + TransportCost*(1-Alpha);
 
 s.t. Assign{j in J}: sum{i in I} Y[i,j] = 1;
 s.t. Capacity{i in I}: sum{j in J} d[j]*Y[i,j] <= Cap[i]*Z[i];

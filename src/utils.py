@@ -151,3 +151,29 @@ def getTotalDemand(clientList):
         totalDemand += client.demand
         totalVariance += client.variance
     return totalDemand + totalVariance
+
+def calcularHipervolumen(puntos, refX, refY):
+    if len(puntos) == 0:
+        return 0.0
+
+    sortedPoints = sorted(puntos, key=lambda p: p[0])
+    print(sortedPoints)
+    hipervolumen = 0.0
+
+    for i in range(len(sortedPoints)):
+        xx = sortedPoints[i][0]
+        yy = sortedPoints[i][1]
+
+        if xx <= refX or yy <= refY:
+            if i + 1 < len(sortedPoints):
+                nextX = sortedPoints[i + 1][0]
+            else:
+                nextX = refX
+
+            width = nextX - xx
+            height = refY - yy
+
+            area = width * height
+            hipervolumen += area
+
+    return hipervolumen
