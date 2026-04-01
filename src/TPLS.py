@@ -182,9 +182,9 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
         
         # Se compara con cada punto del frente de Pareto actual
         for referencePoint in pointsList:
-            #if referencePoint in pointsToRemove:
-            #    print (f"El punto {referencePoint.state} ya está marcado para eliminación, saltando comparación.")
-            #    continue
+            if referencePoint in pointsToRemove:
+                print (f"El punto {referencePoint.state} ya está marcado para eliminación, saltando comparación.")
+                continue
 
             # Si el nuevo punto domina fuertemente o debilmente a un punto del frente actual, se agrega a la lista de nuevos puntos no dominados 
             # y se elimina el punto dominado del frente actual
