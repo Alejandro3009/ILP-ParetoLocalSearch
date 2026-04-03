@@ -47,14 +47,10 @@ def feasibleSolution(state, cdList, totalDemand):
     for i in range(len(state)):
         if state[i] == 1:
             totalCapacity += cdList[i].capacity
-    
-    print (f"Total Capacity: {totalCapacity}, Total Demand + Variance: {totalDemand}")
 
     if totalCapacity >= totalDemand:
-        print("Solución factible")
         return True
     else:
-        print("Solución no factible")
         return False
 
 def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clientList, K, TH, alphaValue):
@@ -75,6 +71,7 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
             pass
 
     tabuPoints, solverTime = calculateFitnessParallel(cdList, clientList, K, TH, tabuState, alphaValue=alphaValue)
+
     exploredTabuPoints.extend(tabuPoints)
     
     for tabuPoint in exploredTabuPoints:
@@ -82,7 +79,6 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
         for point in nonDominatedPoints:
             if tabuPoint.objValueX >= point.objValueX or tabuPoint.objValueY >= point.objValueY:
                 validTabuPoint = False
-                print("no se cumple criterio de aspiracion")
                 break
         if validTabuPoint:
             validTabuPoints.append(tabuPoint)
@@ -128,7 +124,6 @@ def getNeighbor(cdList, nonDominatedPoints, tabu, movementSize, totalDemand, K, 
                 print(f"cerrado: {cdToMove}") 
 
             if not feasibleSolution(changedState, cdList, totalDemand):
-                print("Solución no factible, generando otro vecino...")
                 continue
 
             if isTabu(moves, tabu):
@@ -181,9 +176,9 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
                 break
         
         # Se compara con cada punto del frente de Pareto actual
+        # Si el punto de referencia fue dominado anteriormente, no se usa durante las comparaciones
         for referencePoint in pointsList:
             if referencePoint in pointsToRemove:
-                print (f"El punto {referencePoint.state} ya está marcado para eliminación, saltando comparación.")
                 continue
 
             # Si el nuevo punto domina fuertemente o debilmente a un punto del frente actual, se agrega a la lista de nuevos puntos no dominados 
@@ -224,15 +219,13 @@ def removeDuplicateStates(statesList):
 
 def removeDuplicatePoints(pointsList):
     uniquePoints = {}
-    print("cuantos entraron: " + str(len(pointsList)))
     
     for point in pointsList:
         # Use the state tuple as the unique key
         # This keeps only the first occurrence of each unique state
         if point not in uniquePoints:
             uniquePoints[point] = point
-    
-    print("cuantos quedaron: " + str(len(uniquePoints)))
+
     return list(uniquePoints.values())
 
 def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, movementSize = 3, tabuTenure = 20, amountToAdd = 5, alphaValue = 0.5):
@@ -276,6 +269,7 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
 
         # 4. Evaluar vecinos no encontrados
         paretoPoints, time  = calculateFitnessParallel(cdList, clientList, K, TH, notFound, alphaValue=alphaValue)
+            
         solverTime += time
 
         try:
@@ -300,7 +294,7 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
         if foundNewNonDominated:
             iterationwithoutImprovement = 0
         elif iterationwithoutImprovement >= 3:
-            print("No se han encontrado nuevos puntos no dominados en las últimas 10 iteraciones, terminando búsqueda.")
+            print("No se han encontrado nuevos puntos no dominados en las últimas 3 iteraciones, terminando búsqueda.")
             break
         else:
             iterationwithoutImprovement += 1

@@ -70,7 +70,7 @@ var InfrastructureCost =
 var TransportCost = sum{i in I, j in J} TH * (RC[i] + TC[i,j]) * d[j] * Y[i,j];
 
 minimize TotalCost:
-    InfrastructureCost*Alpha + TransportCost*(1-Alpha);
+    InfrastructureCost * Alpha + TransportCost * (1-Alpha);
 
 s.t. Assign{j in J}: sum{i in I} Y[i,j] = 1;
 s.t. Capacity{i in I}: sum{j in J} d[j]*Y[i,j] <= Cap[i]*Z[i];

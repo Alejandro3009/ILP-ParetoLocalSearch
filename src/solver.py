@@ -54,6 +54,7 @@ def solve_single_state(args):
     worker_ampl = AMPL()
     worker_ampl.eval(modelo)
     worker_ampl.setOption("solver", "gurobi") 
+    worker_ampl.setOption("presolve", 0)
     worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
     
     # Set data and fix Z variables [cite: 71]
@@ -66,16 +67,22 @@ def solve_single_state(args):
 
     worker_ampl.solve()
     
+    if worker_ampl.getValue("solve_result") != "solved":
+        print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
+        return None, worker_ampl.getValue("solve_result")
+
     infra_cost = worker_ampl.get_variable("InfrastructureCost").value() 
     trans_cost = worker_ampl.get_variable("TransportCost").value()
     asignacion = worker_ampl.get_variable("D").get_values().toList()
+    solveResult = worker_ampl.getValue("solve_result")
     
     # Close session to free memory
     worker_ampl.close()
     
     # Use your existing rebalance logic
     new_state, new_infra = rebalanceStates(list(state), cdList, asignacion, infra_cost)
-    return paretoPoint(new_infra, trans_cost, tuple(new_state))
+
+    return paretoPoint(new_infra, trans_cost, tuple(new_state)), solveResult
 
 def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
     paretoPoints = []
@@ -101,8 +108,6 @@ def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
 
         asignacion = ampl.get_variable("D").get_values().toList()
 
-        print("Asignacion:", asignacion)
-
         state, infra_cost = rebalanceStates(list(state), cdList, asignacion, infra_cost)
 
         print(state, infra_cost)
@@ -122,7 +127,15 @@ def calculateFitnessParallel(cdList, clientList, K, TH, statesList, max_workers=
     paretoPoints = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Map tasks to workers
-        paretoPoints = list(executor.map(solve_single_state, tasks))
+        results = list(executor.map(solve_single_state, tasks))
+
+        for result in results:
+            if result[1] is None:
+                print("Warning: One of the states could not be solved.")
+            else:
+                paretoPoints.append(result[0])
+
+        print(f"amount of states solved: {len(paretoPoints)} out of {len(results)}")
     
     time1 = time()
     return paretoPoints, time1 - time0
