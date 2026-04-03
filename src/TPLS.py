@@ -101,7 +101,7 @@ def getNeighbor(cdList, nonDominatedPoints, tabu, movementSize, totalDemand, K, 
             else:
                 closeCds.append(j)
         
-        while i < 10: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
+        while i < 20: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
             changedState = list(point.state)
 
             openAmount = random.randint(0, movementSize)

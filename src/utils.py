@@ -5,7 +5,6 @@ from collections import deque
 from src.model import cd, client
 
 def loadJsonInstance(instance_name, filepath="instancias pequeños valores.json"):
-
     with open(filepath, "r") as f:
         data = json.load(f)
 
@@ -177,3 +176,53 @@ def calcularHipervolumen(puntos, refX, refY):
             hipervolumen += area
 
     return hipervolumen
+
+def aggregateResults(allResults):
+    """
+    Calculates averages for hypervolume and execution time across all tested instances.
+    """
+    if not allResults:
+        return {}
+
+    totalHv = sum(r['hypervolume'] for r in allResults)
+    totalTime = sum(r['executionTime'] for r in allResults)
+    totalPoints = sum(len(r['finalPoints']) for r in allResults)
+    count = len(allResults)
+
+    return {
+        "averagePoints": totalPoints / count,
+        "averageHypervolume": totalHv / count,
+        "averageExecutionTime": totalTime / count,
+        "totalInstancesTested": count
+    }
+
+def formatExperimentOutput(instanceName, data):
+    """
+    Prints a clean summary of the collected data for a single instance.
+    """
+    print(f"\n--- Results for Instance: {instanceName} ---")
+    print(f"Lexicographic Extremes: Infra[{data['infraMin']:.2f}, {data['infraMax']:.2f}]")
+    print(f"                        Trans[{data['transportMin']:.2f}, {data['transportMax']:.2f}]")
+    print(f"Initial State: {data['initialPointState']}")
+    print(f"Hypervolume: {data['hypervolume']:.2f}")
+    print(f"Execution Time: {data['executionTime']:.2f}s")
+
+def exportResults(dataRegistry, globalSummary, filename="experiment_results.json"):
+    """
+    Exports the complete experiment data and global averages to a JSON file.
+    """
+    exportData = {
+        "metadata": {
+            "avg_points_per_instance": globalSummary["averagePoints"],
+            "total_instances": globalSummary["totalInstancesTested"],
+            "avg_hypervolume": globalSummary["averageHypervolume"],
+            "avg_execution_time": globalSummary["averageExecutionTime"]
+        },
+        "instances": dataRegistry
+    }
+
+    with open(filename, "w") as f:
+        # indent=4 makes the text file human-readable 
+        json.dump(exportData, f, indent=4)
+    
+    print(f"\n[SUCCESS] All experiment data exported to {filename}")
