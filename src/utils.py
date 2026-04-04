@@ -1,6 +1,8 @@
 import re
 import json
 import random
+import numpy as np
+import time
 from collections import deque
 from src.model import cd, client
 
@@ -177,52 +179,80 @@ def calcularHipervolumen(puntos, refX, refY):
 
     return hipervolumen
 
-def aggregateResults(allResults):
-    """
-    Calculates averages for hypervolume and execution time across all tested instances.
-    """
-    if not allResults:
-        return {}
+def characterizeInstance(cdList, clientList):
+    """Calculates statistics for the instance to match the report format."""
+    fCosts = [c.fixedCost for c in cdList]
+    caps = [c.capacity for c in cdList]
+    demands = [cl.demand for cl in clientList]
+    allTc = [cost for cl in clientList for cost in cl.transportCost]
 
-    totalHv = sum(r['hypervolume'] for r in allResults)
-    totalTime = sum(r['executionTime'] for r in allResults)
-    totalPoints = sum(len(r['finalPoints']) for r in allResults)
-    count = len(allResults)
+    def getStats(name, values):
+        meanVal = np.mean(values)
+        stdVal = np.std(values)
+        cvVal = (stdVal / meanVal) * 100 if meanVal != 0 else 0
+        return (f"{name}:\n  - Promedio: {meanVal:.2f}\n"
+                f"  - Desv. Estándar: {stdVal:.2f}\n"
+                f"  - Coef. Variación (CV): {cvVal:.2f}%")
 
-    return {
-        "averagePoints": totalPoints / count,
-        "averageHypervolume": totalHv / count,
-        "averageExecutionTime": totalTime / count,
-        "totalInstancesTested": count
-    }
+    totalCap = sum(caps)
+    totalDem = sum(demands)
+    ratio = totalCap / totalDem if totalDem > 0 else 0
+    estado = "Muy Ajustada" if ratio < 1.5 else "Ajustada" if ratio < 3 else "Holgada"
 
-def formatExperimentOutput(instanceName, data):
-    """
-    Prints a clean summary of the collected data for a single instance.
-    """
-    print(f"\n--- Results for Instance: {instanceName} ---")
-    print(f"Lexicographic Extremes: Infra[{data['infraMin']:.2f}, {data['infraMax']:.2f}]")
-    print(f"                        Trans[{data['transportMin']:.2f}, {data['transportMax']:.2f}]")
-    print(f"Initial State: {data['initialPointState']}")
-    print(f"Hypervolume: {data['hypervolume']:.2f}")
-    print(f"Execution Time: {data['executionTime']:.2f}s")
+    report = [
+        "--- Análisis de la Instancia ---",
+        getStats("Costos Fijos (F)", fCosts),
+        getStats("Capacidades (Cap)", caps), 
+        getStats("Demandas (d)", demands),
+        getStats("Costos de Transporte (TC)", allTc), 
+        "\nAnálisis de Tensión:", 
+        f"  - Demanda Total de la Red: {totalDem:.2f}",
+        f"  - Capacidad Total de CDs : {totalCap:.2f}", 
+        f"  - Ratio (Cap/Dem)        : {ratio:.2f}x ({estado})",
+        "--------------------------------"
+    ]
+    return "\n".join(report)
 
-def exportResults(dataRegistry, globalSummary, filename="experiment_results.json"):
-    """
-    Exports the complete experiment data and global averages to a JSON file.
-    """
-    exportData = {
-        "metadata": {
-            "avg_points_per_instance": globalSummary["averagePoints"],
-            "total_instances": globalSummary["totalInstancesTested"],
-            "avg_hypervolume": globalSummary["averageHypervolume"],
-            "avg_execution_time": globalSummary["averageExecutionTime"]
-        },
-        "instances": dataRegistry
-    }
+def exportData(instanceUrl, cdList, clientList, epsilonData, tplsData):
+    """Generates a text report identical to the provided examples."""
+    report = [
+        "==================================================",
+        "         REPORTE DE EJECUCIÓN MULTIOBJETIVO       ",
+        "==================================================", 
+        f"URL Instancia Evaluada: {instanceUrl}",
+        f"Tamaño de Instancia: {len(cdList)} CDs\n",
+        "CARACTERIZACIÓN DE LA INSTANCIA",
+        characterizeInstance(cdList, clientList),
+        "\nRESULTADOS EPSILON-CONSTRAINT",
+        f"Tiempo de ejecución : {epsilonData['time']:.4f} segundos",
+        f"Hipervolumen        : {epsilonData['hv']:.4f}",
+        f"\nPuntos Lexicográficos (Extremos del Frente):",
+        f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+        f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+        f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
+        f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
+    ]
 
-    with open(filename, "w") as f:
-        # indent=4 makes the text file human-readable 
-        json.dump(exportData, f, indent=4)
+    for i in range(len(epsilonData['paretoX'])):
+        report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
+
+    report.append("\nRESULTADOS HEURÍSTICA (TPLS)")
+    report.append(f"Tiempo de ejecución : {tplsData['executionTime']:.4f} segundos")
+    report.append(f"Hipervolumen        : {tplsData['hypervolume']:.4f}")
+    report.append(f"\nFrente de Pareto Final - {len(tplsData['points'])} puntos:")
     
-    print(f"\n[SUCCESS] All experiment data exported to {filename}")
+    for i, p in enumerate(tplsData['points']):
+        report.append(f"  Punto {i+1}: Transp={p.Transport:.2f}, Infra={p.Infrastructure:.2f} | State: {p.state}")
+
+    report.append("\nCOMPARATIVA ESTADÍSTICA")
+    if epsilonData['hv'] > 0:
+        calidad = (tplsData['hypervolume'] / epsilonData['hv']) * 100
+        report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
+        if tplsData['executionTime'] > 0:
+            aceleracion = epsilonData['time'] / tplsData['executionTime'] 
+            report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
+
+    fileName = f"Reporte_{len(cdList)}CDs_{int(time.time())}.txt" 
+    with open(fileName, "w", encoding="utf-8") as f:
+        f.write("\n".join(report))
+    print(f"*** Reporte guardado en {fileName} ***") 

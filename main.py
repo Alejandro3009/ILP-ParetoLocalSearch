@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from amplpy import AMPL, ampl_notebook
 from src.PLS import paretoLocalSearch
-from src.utils import getStateTuple, loadJsonInstance, loadTextInstance, printSummary, randomSolution, calcularHipervolumen, aggregateResults, formatExperimentOutput, exportResults
+from src.utils import getStateTuple, loadJsonInstance, loadTextInstance, printSummary, randomSolution, calcularHipervolumen, exportData
 from src.TPLS import tabuLocalParetoSearch
 from lexsrc.model import instanceToAmpl, mTransport, mInfrastructure
 from lexsrc.solver import solveInstance, solveEpsilon
@@ -53,8 +53,8 @@ license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
 experimentAmount = 1
 alpha = 0.5
 
-instances = [instancesGrok, instancesChatGPT, instancesGemini]
-instancesNames = ["Grok", "ChatGPT", "Gemini"]
+instances = [instancesGemini, instancesDeepseek, instancesGrok, instancesChatGPT]
+instancesNames = ["Gemini", "Deepseek", "Grok", "ChatGPT"]
 
 if __name__ == "__main__":
     for i in range(len(instances)):
@@ -91,6 +91,7 @@ if __name__ == "__main__":
             # 2. Obtener los puntos lexicográficos extremos para cada objetivo
             getEpsilon = True
             if getEpsilon:
+                timeStart = time()
                 transportMin, aux = solveInstance(currentInstance, mTransport)
                 aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
                 
@@ -102,7 +103,7 @@ if __name__ == "__main__":
                 print(f"Punto X lexicográfico de transporte: {transportMin}")
                 print(f"Punto Y lexicográfico de transporte: {infraMax}")
 
-                steps = 20
+                steps = 10
                 epsilonSteps = np.linspace(infraMin, infraMax, steps)
                 print(epsilonSteps)
 
@@ -114,6 +115,21 @@ if __name__ == "__main__":
                     if transportCost is not None:
                         paretoX.append(transportCost)
                         paretoY.append(infraCost)
+                
+                timeEnd = time()
+
+                hvEpsilon = calcularHipervolumen(list(zip(paretoX, paretoY)), infraMax, transportMax)
+
+                epsilonInfo = {
+                'transMin': transportMin, 
+                'transMax': transportMax,
+                'infraMin': infraMin, 
+                'infraMax': infraMax,
+                'paretoX': paretoX, 
+                'paretoY': paretoY, 
+                'hv': hvEpsilon, 
+                'time': timeEnd - timeStart 
+                }
 
             # 3. Obtener una solución inicial aleatoria
             randomSolution(cdList, clientList)
@@ -136,42 +152,24 @@ if __name__ == "__main__":
                 
                 # 5. Calculate Hypervolume for this instance
                 # Convert objects to (x, y) tuples for your HV function
-                hvPoints = [(p.objValueX, p.objValueY) for p in finalParetoFront]
-                hvValue = calcularHipervolumen(hvPoints, infraMax * 1.1, transportMax * 1.1)
+                hvPoints = [(p.Infrastructure, p.Transport) for p in finalParetoFront]
+                hvValue = calcularHipervolumen(hvPoints, infraMax, transportMax)
 
-                instanceData = {
-                        "instanceUrl": currentUrl,
-                        "infraMin": infraMin,
-                        "infraMax": infraMax,
-                        "transportMin": transportMin,
-                        "transportMax": transportMax,
-                        "initialPointState": initialState,
-                        "finalPoints": [(p.objValueX, p.objValueY, p.state) for p in finalParetoFront],
-                        "hypervolume": hvValue,
-                        "executionTime": timeEnd - timeStart
-                    }
-                
-                experimentRegistry.append(instanceData)
-                formatExperimentOutput(currentUrl.split('/')[-1], instanceData)
-
+                tplsInfo = {
+                'executionTime': executionTime,
+                'hypervolume': hvValue,
+                'points': finalParetoFront
+                }
                 iteration += 1
-            
-            summary = aggregateResults(experimentRegistry)
-            print("\n" + "="*40)
-            print("GLOBAL EXPERIMENT SUMMARY")
-            print("="*40)
-            print(f"Instances Processed: {summary['totalInstancesTested']}")
-            print(f"Avg Hypervolume:    {summary['averageHypervolume']:.2f}")
-            print(f"Avg Execution Time: {summary['averageExecutionTime']:.2f}s")
-            
-            exportResults(experimentRegistry, summary, f"{fileName}_results.json")
+
+            exportData(currentUrl, cdList, clientList, epsilonInfo, tplsInfo)
 
             # 6. Plotting y visualización de los resultados
             if finalParetoFront:
             # Extract objective values from the paretoPoint instances 
             # objValueX = Infrastructure Cost, objValueY = Transport Cost
-                infra_costs = [p.objValueX for p in finalParetoFront]
-                trans_costs = [p.objValueY for p in finalParetoFront]
+                infra_costs = [p.Infrastructure for p in finalParetoFront]
+                trans_costs = [p.Transport for p in finalParetoFront]
 
                 # Create the plot
                 plt.figure(figsize=(10, 6))
@@ -179,23 +177,23 @@ if __name__ == "__main__":
                 # Plot the lexicographic points for reference
                 # In main.py, change the order to (Infra, Transport)
                 if getEpsilon:
-                    plt.scatter([infraMax, infraMin], [transportMin, transportMax], c=['blue', 'red'])
-                    plt.plot(paretoY, paretoX, marker='o', linestyle='-', color='green', label='Lexicographic') 
+                    plt.scatter([transportMin, transportMax], [infraMax, infraMin], c=['blue', 'red'])
+                    plt.plot(paretoX, paretoY, marker='o', linestyle='-', color='green', label='Lexicographic') 
 
                 # Plot individual points
-                plt.scatter(infra_costs, trans_costs, color='purple', zorder=5, label='Pareto Optimal Points')
+                plt.scatter(trans_costs, infra_costs, color='purple', zorder=5, label='Pareto Optimal Points')
 
                 # Optional: Draw a line connecting the points to visualize the 'Frontier'
                 # We sort by Infrastructure Cost to ensure the line connects points in order
-                sorted_front = sorted(finalParetoFront, key=lambda p: p.objValueX)
-                x_line = [p.objValueX for p in sorted_front]
-                y_line = [p.objValueY for p in sorted_front]
-                plt.plot(x_line, y_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
+                sorted_front = sorted(finalParetoFront, key=lambda p: p.Infrastructure)
+                x_line = [p.Infrastructure for p in sorted_front]
+                y_line = [p.Transport for p in sorted_front]
+                plt.plot(y_line, x_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
 
                 # Labels and Titles
                 plt.title(f"Results for {fileName}")
-                plt.xlabel('Infrastructure Cost ($)')
-                plt.ylabel('Transport Cost ($)')
+                plt.xlabel('Transport Cost ($)')
+                plt.ylabel('Infrastructure Cost ($)')
                 plt.grid(True, linestyle=':', alpha=0.7)
                 plt.legend()
 

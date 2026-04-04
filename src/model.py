@@ -1,9 +1,9 @@
 from amplpy import AMPL, ampl_notebook
 
 class paretoPoint:
-    def __init__(self, x, y, state):
-        self.objValueX = x
-        self.objValueY = y
+    def __init__(self, Infrastructure, Transport, state):
+        self.Infrastructure = Infrastructure
+        self.Transport = Transport
         self.state = state
 
 class cd:

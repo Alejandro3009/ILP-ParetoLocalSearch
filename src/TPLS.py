@@ -77,7 +77,7 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
     for tabuPoint in exploredTabuPoints:
         validTabuPoint = True
         for point in nonDominatedPoints:
-            if tabuPoint.objValueX >= point.objValueX or tabuPoint.objValueY >= point.objValueY:
+            if tabuPoint.Infrastructure >= point.Infrastructure or tabuPoint.Transport >= point.Transport:
                 validTabuPoint = False
                 break
         if validTabuPoint:
@@ -101,7 +101,7 @@ def getNeighbor(cdList, nonDominatedPoints, tabu, movementSize, totalDemand, K, 
             else:
                 closeCds.append(j)
         
-        while i < 20: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
+        while i < 10: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
             changedState = list(point.state)
 
             openAmount = random.randint(0, movementSize)
@@ -183,9 +183,9 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
 
             # Si el nuevo punto domina fuertemente o debilmente a un punto del frente actual, se agrega a la lista de nuevos puntos no dominados 
             # y se elimina el punto dominado del frente actual
-            if (evaluatedPoint.objValueX >= referencePoint.objValueX and evaluatedPoint.objValueY >= referencePoint.objValueY) and evaluatedPoint != referencePoint:
+            if (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and evaluatedPoint.Transport >= referencePoint.Transport) and evaluatedPoint != referencePoint:
                 print (f"El punto {evaluatedPoint.state} domina a {referencePoint.state}")
-                print (f"Infra: {evaluatedPoint.objValueX} vs {referencePoint.objValueX}, Trans: {evaluatedPoint.objValueY} vs {referencePoint.objValueY}")
+                print (f"Infra: {evaluatedPoint.Infrastructure} vs {referencePoint.Infrastructure}, Trans: {evaluatedPoint.Transport} vs {referencePoint.Transport}")
                 nonDominated = False
                 break
 
@@ -282,7 +282,7 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
             paretoPoints.extend(alreadyFound)
 
         for point in paretoPoints:
-            print(f"state {point.state}, Infra: {point.objValueX}, Transport: {point.objValueY}")
+            print(f"state {point.state}, Infra: {point.Infrastructure}, Transport: {point.Transport}")
 
         # 5. Actualizar el frente de Pareto con la funcion de dominancia
         if len(paretoPoints) > 0:
