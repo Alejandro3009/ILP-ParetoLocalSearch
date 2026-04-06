@@ -51,8 +51,8 @@ Puntos del Frente (10 steps):
 
 RESULTADOS HEURÍSTICA (TPLS)
 ** El TPLS se detuvo prematuramente en la iteración 14 de 50 debido a falta de mejora. **
-Tiempo de ejecución : 379.5169 segundos
-Hipervolumen        : 659854819893067.8750
+Tiempo de ejecución : 379.54169 segundos
+Hipervolumen        : 65985819893067.8750
 
 Frente de Pareto Final - 12 puntos:
   Punto 1: Transp=23840680000.00, Infra=3240662.52 | State: (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)

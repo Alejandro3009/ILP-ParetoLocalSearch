@@ -1,0 +1,6 @@
+Punto X lexicográfico de infraestructura e inventario: 13883507000
+Punto Y lexicográfico de infraestructura e inventario: 4553006.500277725
+Punto X lexicográfico de transporte: 1713114000
+Punto Y lexicográfico de transporte: 19511277.51948331
+Pareto X: [13883507000, 4575452500, 1783044000, 1716140500, 1713114000]
+Pareto Y: [4553006.500277726, 7877066.726767855, 14524320.206808764, 17804200.10248719, 19511277.51948331]

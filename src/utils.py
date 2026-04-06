@@ -1,4 +1,5 @@
 import re
+import ast
 import json
 import random
 import numpy as np
@@ -266,3 +267,47 @@ def exportData(instanceUrl, cdList, clientList, epsilonData, gottenEpsilon, tpls
     with open(fileName, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
     print(f"*** Reporte guardado en {fileName} ***") 
+
+def readLexicographicData(filePath):
+    data = {
+        "infraLex": {"x": 0.0, "y": 0.0},
+        "transpLex": {"x": 0.0, "y": 0.0},
+        "paretoX": [],
+        "paretoY": []
+    }
+
+    try:
+        with open(filePath, 'r', encoding='utf-8') as file:
+            content = file.read()
+
+            # 1. Extrair Pontos Lexicográficos usando Regex
+            # Busca o padrão "Punto X... [número]"
+            infraX = re.search(r"Punto X lexicográfico de infraestructura e inventario:\s+([\d\.]+)", content)
+            infraY = re.search(r"Punto Y lexicográfico de infraestructura e inventario:\s+([\d\.]+)", content)
+            transpX = re.search(r"Punto X lexicográfico de transporte:\s+([\d\.]+)", content)
+            transpY = re.search(r"Punto Y lexicográfico de transporte:\s+([\d\.]+)", content)
+
+            if infraX: data["infraLex"]["x"] = float(infraX.group(1))
+            if infraY: data["infraLex"]["y"] = float(infraY.group(1))
+            if transpX: data["transpLex"]["x"] = float(transpX.group(1))
+            if transpY: data["transpLex"]["y"] = float(transpY.group(1))
+
+            # 2. Extrair listas Pareto X e Pareto Y
+            # Busca o padrão "Pareto X: [ ... ]"
+            listX = re.search(r"Pareto X:\s*(\[.*?\])", content)
+            listY = re.search(r"Pareto Y:\s*(\[.*?\])", content)
+
+            if listX:
+                # ast.literal_eval converte a string da lista em uma lista real de Python com segurança
+                data["paretoX"] = ast.literal_eval(listX.group(1))
+            if listY:
+                data["paretoY"] = ast.literal_eval(listY.group(1))
+
+        return data
+
+    except FileNotFoundError:
+        print(f"Error: El archivo {filePath} no fue encontrado.")
+        return None
+    except Exception as e:
+        print(f"Error al procesar el archivo: {e}")
+        return None

@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from amplpy import AMPL, ampl_notebook
 from src.PLS import paretoLocalSearch
-from src.utils import getStateTuple, loadJsonInstance, loadTextInstance, printSummary, randomSolution, calcularHipervolumen, exportData
+from src.utils import getStateTuple, loadJsonInstance, loadTextInstance, printSummary, randomSolution, calcularHipervolumen, exportData, readLexicographicData
 from src.TPLS import tabuLocalParetoSearch
 from lexsrc.model import instanceToAmpl, mTransport, mInfrastructure
 from lexsrc.solver import solveInstance, solveEpsilon
@@ -63,73 +63,127 @@ iterationAmount = 50
 movementSize = 5
 alpha = 0.5
 
-#instances = [instancesGrok, instancesChatGPT, instancesDeepseek, instancesGemini]
-#instancesNames = ["Grok", "ChatGPT", "Deepseek", "Gemini"]
-instances = [instancesSpecial]
-instancesNames = ["inventario absurdo", "infraestructura prohibitiva", "demanda extrema", "capacidad restringida", "alta dispersion"]
+#instances = [instancesGemini, instancesGrok, instancesChatGPT, instancesDeepseek]
+#instancesNames = ["Gemini", "Grok", "ChatGPT", "Deepseek"]
+#instances = [instancesSpecial]
+#instancesNames = ["inventario absurdo", "infraestructura prohibitiva", "demanda extrema", "capacidad restringida", "alta dispersion"]
+
+instances = ["grok4_lexicographic_points.txt", instancesGrok[0], instancesGrok[1]]
+
+epsilonFiles = True
 
 if __name__ == "__main__":
-    for i in range(len(instances)):
-        instanceSet = instances[i]
+    #for i in range(len(instances)):
+    j = 1
+    while j == 1:
+        #instanceSet = instances[i]
+        name = "Grok" #instancesNames[i]
         
-        
-        j = 0
-        for currentUrl in instanceSet: #
-            name = instancesNames[j]
+        aux = 1
+        j = 1
+        for currentUrl in instances: #
             currentInstance = ""
+            
+            if aux != 1:
+                fileName = f"{name}_{j}"
 
-            fileName = f"{name}"
+                print(f"Descargando archivo .dat desde Gist...")
+                try:
+                    response = requests.get(currentUrl)
+                    response.raise_for_status()
+                    currentInstance = response.text
 
-            print(f"Descargando archivo .dat desde Gist...")
-            try:
-                response = requests.get(currentUrl)
-                response.raise_for_status()
-                currentInstance = response.text
+                except Exception as e:
+                    print(f"Error descargando: {e}")
 
-            except Exception as e:
-                print(f"Error descargando: {e}")
-
-            # 1. Cargar las intancias (ya sea desde el json o de las urls)
-            if 1==1:
-                if currentInstance:
-                    cdList, clientList, K, TH = loadTextInstance(currentInstance)
+                # 1. Cargar las intancias (ya sea desde el json o de las urls)
+                if 1==1:
+                    if currentInstance:
+                        cdList, clientList, K, TH = loadTextInstance(currentInstance)
+                        printSummary(cdList, clientList, K, TH)
+                else:
+                    cdList, clientList = loadJsonInstance("small2")
+                    K = 1.28
+                    TH = 1
                     printSummary(cdList, clientList, K, TH)
+                    currentInstance = instanceToAmpl(cdList, clientList, K, TH)
+
+                # 2. Obtener los puntos lexicográficos extremos para cada objetivo
+                getEpsilon = True
+                if getEpsilon:
+                    timeStart = time()
+                    transportMin, aux = solveInstance(currentInstance, mTransport)
+                    aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
+                    
+                    aux, infraMin = solveInstance(currentInstance, mInfrastructure)
+                    transportMax, aux = solveInstance(currentInstance, mTransport, infraMin)
+
+                    print(f"Punto X lexicográfico de infraestructura e inventario {transportMax}")
+                    print(f"Punto Y lexicográfico de infraestructura e inventario {infraMin}")
+                    print(f"Punto X lexicográfico de transporte: {transportMin}")
+                    print(f"Punto Y lexicográfico de transporte: {infraMax}")
+
+                    steps = 10
+                    epsilonSteps = np.linspace(infraMin, infraMax, steps)
+                    print(epsilonSteps)
+
+                    paretoX = []
+                    paretoY = []
+
+                    for step in epsilonSteps:
+                        transportCost, infraCost = solveEpsilon(currentInstance, mTransport, step)
+                        if transportCost is not None:
+                            paretoX.append(transportCost)
+                            paretoY.append(infraCost)
+                    
+                    timeEnd = time()
+
+                    hvEpsilon = calcularHipervolumen(list(zip(paretoY, paretoX)), infraMax, transportMax)
+
+                    epsilonInfo = {
+                    'transMin': transportMin, 
+                    'transMax': transportMax,
+                    'infraMin': infraMin, 
+                    'infraMax': infraMax,
+                    'paretoX': paretoX, 
+                    'paretoY': paretoY, 
+                    'hv': hvEpsilon, 
+                    'time': timeEnd - timeStart 
+                    }
+
+                    j+=1
+                else:
+                    epsilonInfo = None
             else:
-                cdList, clientList = loadJsonInstance("small2")
-                K = 1.28
-                TH = 1
-                printSummary(cdList, clientList, K, TH)
-                currentInstance = instanceToAmpl(cdList, clientList, K, TH)
+                fileName = f"{name}_4"
+                getEpsilon = True
 
-            # 2. Obtener los puntos lexicográficos extremos para cada objetivo
-            getEpsilon = True
-            if getEpsilon:
-                timeStart = time()
-                transportMin, aux = solveInstance(currentInstance, mTransport)
-                aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
+                print(f"Descargando archivo .dat desde Gist...")
+                try:
+                    response = requests.get(instancesGrok[3])
+                    response.raise_for_status()
+                    currentInstance = response.text
+
+                except Exception as e:
+                    print(f"Error descargando: {e}")
+
+                # 1. Cargar las intancias (ya sea desde el json o de las urls)
+                if 1==1:
+                    if currentInstance:
+                        cdList, clientList, K, TH = loadTextInstance(currentInstance)
+                        printSummary(cdList, clientList, K, TH)
+
+                data = readLexicographicData(currentUrl)
+
+                paretoX = data["paretoX"]
+                paretoY = data["paretoY"]
                 
-                aux, infraMin = solveInstance(currentInstance, mInfrastructure)
-                transportMax, aux = solveInstance(currentInstance, mTransport, infraMin)
+                infraMax = data["transpLex"]["y"]
+                transportMax = data["infraLex"]["x"]
+                infraMin = data["infraLex"]["y"]
+                transportMin = data["transpLex"]["x"]
 
-                print(f"Punto X lexicográfico de infraestructura e inventario {transportMax}")
-                print(f"Punto Y lexicográfico de infraestructura e inventario {infraMin}")
-                print(f"Punto X lexicográfico de transporte: {transportMin}")
-                print(f"Punto Y lexicográfico de transporte: {infraMax}")
-
-                steps = 10
-                epsilonSteps = np.linspace(infraMin, infraMax, steps)
-                print(epsilonSteps)
-
-                paretoX = []
-                paretoY = []
-
-                for step in epsilonSteps:
-                    transportCost, infraCost = solveEpsilon(currentInstance, mTransport, step)
-                    if transportCost is not None:
-                        paretoX.append(transportCost)
-                        paretoY.append(infraCost)
-                
-                timeEnd = time()
+                print(f'valores lexicograficos: {infraMax}, {infraMin}, {transportMax}, {transportMin}')
 
                 hvEpsilon = calcularHipervolumen(list(zip(paretoY, paretoX)), infraMax, transportMax)
 
@@ -141,10 +195,10 @@ if __name__ == "__main__":
                 'paretoX': paretoX, 
                 'paretoY': paretoY, 
                 'hv': hvEpsilon, 
-                'time': timeEnd - timeStart 
+                'time': 1 
                 }
-            else:
-                epsilonInfo = None
+
+                aux += 1
 
             # 3. Obtener una solución inicial aleatoria
             randomSolution(cdList, clientList)
@@ -240,5 +294,3 @@ if __name__ == "__main__":
                 print(f"Visualisation saved as '{fileName}_results.png'")
             else:
                 print("No solutions were found to plot.")
-            
-            j += 1

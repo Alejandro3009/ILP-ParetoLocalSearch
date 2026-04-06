@@ -1,0 +1,66 @@
+==================================================
+         REPORTE DE EJECUCIÓN MULTIOBJETIVO       
+==================================================
+URL Instancia Evaluada: https://gist.github.com/athersoft/e0bfbcdc2bf4beda0ba81daeb87b8a2d/raw/ec7e78f81a177649f83e1fead4054adab51357a0/80x40-gemini.dat
+Tamaño de Instancia: 40 CDs
+
+CARACTERIZACIÓN DE LA INSTANCIA
+--- Análisis de la Instancia ---
+Costos Fijos (F):
+  - Promedio: 49159.38
+  - Desv. Estándar: 28143.41
+  - Coef. Variación (CV): 57.25%
+Capacidades (Cap):
+  - Promedio: 33045.85
+  - Desv. Estándar: 10753.52
+  - Coef. Variación (CV): 32.54%
+Demandas (d):
+  - Promedio: 300.21
+  - Desv. Estándar: 114.96
+  - Coef. Variación (CV): 38.29%
+Costos de Transporte (TC):
+  - Promedio: 25.51
+  - Desv. Estándar: 14.09
+  - Coef. Variación (CV): 55.21%
+
+Análisis de Tensión:
+  - Demanda Total de la Red: 24017.00
+  - Capacidad Total de CDs : 1321834.00
+  - Ratio (Cap/Dem)        : 55.04x (Holgada)
+--------------------------------
+
+RESULTADOS EPSILON-CONSTRAINT
+Tiempo de ejecución : 58.8765 segundos
+Hipervolumen        : 13068585823611702.0000
+Puntos Lexicográficos (Extremos del Frente):
+  - Nadir: Transp=17352905000.00, Infra=3036527.14
+  - Transp. Mín   : Transp=7560497000.00, Infra=3036527.14
+  - Infra. Mín    : Transp=17352905000.00, Infra=736211.56
+
+Puntos del Frente (10 steps):
+  Punto 1: Transp=17352905000.00, Infra=736211.56
+  Punto 2: Transp=17126195000.00, Infra=991802.18
+  Punto 3: Transp=14858895000.00, Infra=1246337.67
+  Punto 4: Transp=11203295000.00, Infra=1502983.42
+  Punto 5: Transp=11004715000.00, Infra=1758574.04
+  Punto 6: Transp=10602701000.00, Infra=2014164.66
+  Punto 7: Transp=7661962000.00, Infra=2269755.28
+  Punto 8: Transp=7641694000.00, Infra=2525345.90
+  Punto 9: Transp=7602214000.00, Infra=2780936.52
+  Punto 10: Transp=7560497000.00, Infra=3036527.14
+
+RESULTADOS HEURÍSTICA (TPLS)
+** El TPLS se detuvo prematuramente en la iteración 7 de 50 debido a falta de mejora. **
+Tiempo de ejecución : 166.1612 segundos
+Hipervolumen        : 14700398732940048.0000
+
+Frente de Pareto Final - 5 puntos:
+  Punto 1: Transp=14923983000.00, Infra=1047023.86 | State: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 2: Transp=7662484000.00, Infra=2061337.23 | State: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)
+  Punto 3: Transp=11234084000.00, Infra=1306110.64 | State: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0)
+  Punto 4: Transp=7560497000.00, Infra=3036527.14 | State: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)
+  Punto 5: Transp=17352905000.00, Infra=736211.56 | State: (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+COMPARATIVA ESTADÍSTICA
+Calidad del TPLS vs Exacto : 112.49% (Cobertura del Hipervolumen)
+Aceleración de Tiempo      : El TPLS fue 0.35x más rápido que Epsilon

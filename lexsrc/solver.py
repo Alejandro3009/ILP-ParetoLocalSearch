@@ -10,7 +10,7 @@ def solveInstance(instance, model, epsilon = 1e20):
     ampl.eval(instance)
     ampl.param["epsilon"] = epsilon
     ampl.setOption("solver", "gurobi")
-    ampl.option["gurobi_options"] = "NonConvex=2 MIPGap=1e-8 FeasTol=1e-9 BarConvTol=1e-9 timelimit=7200"
+    ampl.option["gurobi_options"] = "NonConvex=2 MIPGap=1e-8 FeasTol=1e-9 BarConvTol=1e-9 timelimit=3600"
     ampl.solve()
     
     transp = ampl.getValue("CostoTransp")
