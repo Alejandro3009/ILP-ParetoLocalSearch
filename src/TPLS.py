@@ -163,7 +163,6 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
     pointsToRemove = []
     tabuRate = createTabuRate(pointsList)
     pointsList.extend(nonDominatedPoints)
-    foundNonDominated = False #Flag para indicar si se encontró un nuevo punto no dominado
 
     for evaluatedPoint in pointsList:
         nonDominated = True
@@ -192,7 +191,6 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
         if not nonDominated:
             pointsToRemove.append(evaluatedPoint)
         else:
-            foundNonDominated = True
             if movements is not None:
                 for move in movements.keys():
                     if movements[move] == 1:
@@ -204,7 +202,7 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
         if pointToRemove in pointsList:
             pointsList.remove(pointToRemove)
 
-    return pointsList, foundNonDominated, tabuRate
+    return pointsList, tabuRate
 
 def removeDuplicateStates(statesList):
     uniquePoints = {}
@@ -246,6 +244,8 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
     addedTabus = []
 
     solverTime = 0
+    
+    stopped = [False, None]
 
     while i < iterationLimit: 
         # 2. Generar vecinos y remover duplicados
@@ -285,16 +285,20 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
             print(f"state {point.state}, Infra: {point.Infrastructure}, Transport: {point.Transport}")
 
         # 5. Actualizar el frente de Pareto con la funcion de dominancia
-        if len(paretoPoints) > 0:
-            nonDominatedPoints, foundNewNonDominated, tabuRate = checkDominance(paretoPoints, nonDominatedPoints, neighborMovements)
-        else:
-            foundNewNonDominated = False
+        previousFrontStates = set(p.state for p in nonDominatedPoints)
         
+        nonDominatedPoints, tabuRate = checkDominance(paretoPoints, nonDominatedPoints, neighborMovements)
+
         # 5.1 Criterio de parada por falta de mejora
-        if foundNewNonDominated:
+        currentFrontStates = set(p.state for p in nonDominatedPoints)
+        foundNewPoint = not currentFrontStates.issubset(previousFrontStates) 
+
+        if foundNewPoint:
             iterationwithoutImprovement = 0
-        elif iterationwithoutImprovement >= 3:
-            print("No se han encontrado nuevos puntos no dominados en las últimas 3 iteraciones, terminando búsqueda.")
+        elif iterationwithoutImprovement >= 5:
+            print("No se han encontrado nuevos puntos no dominados en las últimas 5 iteraciones, terminando búsqueda.")
+            stopped = [True, i]
+            nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
             break
         else:
             iterationwithoutImprovement += 1
@@ -323,4 +327,4 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
 
         i += 1
     
-    return nonDominatedPoints, solverTime
+    return nonDominatedPoints, solverTime, stopped

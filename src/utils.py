@@ -213,7 +213,7 @@ def characterizeInstance(cdList, clientList):
     ]
     return "\n".join(report)
 
-def exportData(instanceUrl, cdList, clientList, epsilonData, tplsData):
+def exportData(instanceUrl, cdList, clientList, epsilonData, gottenEpsilon, tplsData, instanceName):
     """Generates a text report identical to the provided examples."""
     report = [
         "==================================================",
@@ -223,36 +223,46 @@ def exportData(instanceUrl, cdList, clientList, epsilonData, tplsData):
         f"Tamaño de Instancia: {len(cdList)} CDs\n",
         "CARACTERIZACIÓN DE LA INSTANCIA",
         characterizeInstance(cdList, clientList),
-        "\nRESULTADOS EPSILON-CONSTRAINT",
-        f"Tiempo de ejecución : {epsilonData['time']:.4f} segundos",
-        f"Hipervolumen        : {epsilonData['hv']:.4f}",
-        f"\nPuntos Lexicográficos (Extremos del Frente):",
-        f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
-        f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
-        f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
-        f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
     ]
 
-    for i in range(len(epsilonData['paretoX'])):
-        report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
+    if gottenEpsilon:
+        report.extend([
+            "\nRESULTADOS EPSILON-CONSTRAINT",
+            f"Tiempo de ejecución : {epsilonData['time']:.4f} segundos",
+            f"Hipervolumen        : {epsilonData['hv']:.4f}"
+            f"\nPuntos Lexicográficos (Extremos del Frente):",
+            f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+            f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+            f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
+            f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
+        ])
+
+        for i in range(len(epsilonData['paretoX'])):
+            report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
 
     report.append("\nRESULTADOS HEURÍSTICA (TPLS)")
+    if tplsData['stopped']:
+        report.append(f"** El TPLS se detuvo prematuramente en la iteración {tplsData['stoppingIteration']} de {tplsData['amountIterations']} debido a falta de mejora. **")
+    else:
+        report.append(f"** El TPLS completó todas las iteraciones ({tplsData['amountIterations']}) sin detenerse por falta de mejora. **")
     report.append(f"Tiempo de ejecución : {tplsData['executionTime']:.4f} segundos")
-    report.append(f"Hipervolumen        : {tplsData['hypervolume']:.4f}")
+    if gottenEpsilon:
+        report.append(f"Hipervolumen        : {tplsData['hypervolume']:.4f}")
     report.append(f"\nFrente de Pareto Final - {len(tplsData['points'])} puntos:")
     
     for i, p in enumerate(tplsData['points']):
         report.append(f"  Punto {i+1}: Transp={p.Transport:.2f}, Infra={p.Infrastructure:.2f} | State: {p.state}")
 
-    report.append("\nCOMPARATIVA ESTADÍSTICA")
-    if epsilonData['hv'] > 0:
-        calidad = (tplsData['hypervolume'] / epsilonData['hv']) * 100
-        report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
-        if tplsData['executionTime'] > 0:
-            aceleracion = epsilonData['time'] / tplsData['executionTime'] 
-            report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
+    if gottenEpsilon:
+        report.append("\nCOMPARATIVA ESTADÍSTICA")
+        if epsilonData['hv'] > 0:
+            calidad = (tplsData['hypervolume'] / epsilonData['hv']) * 100
+            report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
+            if tplsData['executionTime'] > 0:
+                aceleracion = epsilonData['time'] / tplsData['executionTime'] 
+                report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
 
-    fileName = f"Reporte_{len(cdList)}CDs_{int(time.time())}.txt" 
+    fileName = f"Reporte_{instanceName}_{int(time.time())}.txt" 
     with open(fileName, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
     print(f"*** Reporte guardado en {fileName} ***") 

@@ -46,26 +46,39 @@ instancesDeepseek = [
     "https://gist.github.com/athersoft/63415c7f2205b1c61129ebc1ee3cfcd8/raw/e1635522259d8076bad99dcc0865d11de6b01c96/140x70-deepseek.dat"
 ]
 
-instanciaPaper = "https://gist.githubusercontent.com/athersoft/2dcb176d505a41cffdbcc568682576b5/raw/ac9331d7f6fcecf3fa9b97ca41b0e9d6b1f0b889/instanciaPaper"
+instanciaPaper = ["https://gist.githubusercontent.com/athersoft/2dcb176d505a41cffdbcc568682576b5/raw/ac9331d7f6fcecf3fa9b97ca41b0e9d6b1f0b889/instanciaPaper"]
+
+instancesSpecial = [
+    "https://gist.githubusercontent.com/athersoft/ae222648b85aa417c53a841a3e39eac7/raw/6afa7e71baf4a75951bc1dab042cf89ce6ffbc4e/inventarioAbsurdo",
+    "https://gist.githubusercontent.com/athersoft/61aa11e8d3cef6584417439e5fcc4808/raw/bc28fbcea9b088c0abec974fa5537a6e02d9da98/infraestructuraProhibitiva",
+    "https://gist.githubusercontent.com/athersoft/d3a58f54fc61ad124e75884ae5595a32/raw/5fcbb5c1eb832f3d1ffee9fb85280e196f3da5b4/demandaExtrema",
+    "https://gist.githubusercontent.com/athersoft/87326bd12029819eb826b9cd3db07808/raw/86c4880ef37dc7e11d2049ec5ccfdb85dfb8c650/capacidadRestringida",
+    "https://gist.githubusercontent.com/athersoft/259c57976bd4ff835394be1b0f91aae0/raw/f10a2f6c1ba13520ecfebceab8478f03178e08b8/altaDispersion"
+]
 
 #Inicialización de variables globales y constantes
 license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
 experimentAmount = 1
+iterationAmount = 50
+movementSize = 5
 alpha = 0.5
 
-instances = [instancesGemini, instancesDeepseek, instancesGrok, instancesChatGPT]
-instancesNames = ["Gemini", "Deepseek", "Grok", "ChatGPT"]
+#instances = [instancesGrok, instancesChatGPT, instancesDeepseek, instancesGemini]
+#instancesNames = ["Grok", "ChatGPT", "Deepseek", "Gemini"]
+instances = [instancesSpecial]
+instancesNames = ["inventario absurdo", "infraestructura prohibitiva", "demanda extrema", "capacidad restringida", "alta dispersion"]
 
 if __name__ == "__main__":
     for i in range(len(instances)):
         instanceSet = instances[i]
-        name = instancesNames[i]
         
-        j = 1
+        
+        j = 0
         for currentUrl in instanceSet: #
+            name = instancesNames[j]
             currentInstance = ""
 
-            fileName = f"{name}_{j}"
+            fileName = f"{name}"
 
             print(f"Descargando archivo .dat desde Gist...")
             try:
@@ -118,7 +131,7 @@ if __name__ == "__main__":
                 
                 timeEnd = time()
 
-                hvEpsilon = calcularHipervolumen(list(zip(paretoX, paretoY)), infraMax, transportMax)
+                hvEpsilon = calcularHipervolumen(list(zip(paretoY, paretoX)), infraMax, transportMax)
 
                 epsilonInfo = {
                 'transMin': transportMin, 
@@ -130,6 +143,8 @@ if __name__ == "__main__":
                 'hv': hvEpsilon, 
                 'time': timeEnd - timeStart 
                 }
+            else:
+                epsilonInfo = None
 
             # 3. Obtener una solución inicial aleatoria
             randomSolution(cdList, clientList)
@@ -144,25 +159,47 @@ if __name__ == "__main__":
                     break
                 if 1==1:
                     timeStart = time()
-                    finalParetoFront, solverTime = tabuLocalParetoSearch(cdList, clientList, K, TH, 50, 5, int(len(cdList)/2), int(len(cdList)/4), alpha)
+                    finalParetoFront, solverTime, stopped = tabuLocalParetoSearch(cdList, clientList, K, TH, iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
                     timeEnd = time()
-                    executionTime = timeEnd - timeStart
                 else:
                     finalParetoFront = paretoLocalSearch(cdList, clientList, K, TH, 50)
                 
                 # 5. Calculate Hypervolume for this instance
                 # Convert objects to (x, y) tuples for your HV function
-                hvPoints = [(p.Infrastructure, p.Transport) for p in finalParetoFront]
-                hvValue = calcularHipervolumen(hvPoints, infraMax, transportMax)
 
-                tplsInfo = {
-                'executionTime': executionTime,
-                'hypervolume': hvValue,
-                'points': finalParetoFront
-                }
+                if getEpsilon:
+                    hvPoints = [(p.Infrastructure, p.Transport) for p in finalParetoFront]
+                    hvValue = calcularHipervolumen(hvPoints, infraMax, transportMax)
+
+                    tplsInfo = {
+                    'executionTime': timeEnd - timeStart,
+                    'hypervolume': hvValue,
+                    'points': finalParetoFront
+                    }
+
+                    if stopped[0]:
+                        tplsInfo['stopped'] = True
+                        tplsInfo['stoppingIteration'] = stopped[1]
+                        tplsInfo['amountIterations'] = iterationAmount
+                    else:
+                        tplsInfo['stopped'] = False
+                        tplsInfo['amountIterations'] = iterationAmount
+                else:
+                    tplsInfo = {
+                    'executionTime': timeEnd - timeStart,
+                    'points': finalParetoFront
+                    }
+
+                    if stopped[0]:
+                        tplsInfo['stopped'] = True
+                        tplsInfo['stoppingIteration'] = stopped[1]
+                        tplsInfo['amountIterations'] = iterationAmount
+                    else:
+                        tplsInfo['stopped'] = False
+                        tplsInfo['amountIterations'] = iterationAmount
                 iteration += 1
 
-            exportData(currentUrl, cdList, clientList, epsilonInfo, tplsInfo)
+            exportData(currentUrl, cdList, clientList, epsilonInfo, getEpsilon, tplsInfo, fileName)
 
             # 6. Plotting y visualización de los resultados
             if finalParetoFront:
@@ -199,7 +236,7 @@ if __name__ == "__main__":
 
                 # Save the plot
                 plt.savefig(f"{fileName}_results.png")
-                plt.show()
+                #plt.show()
                 print(f"Visualisation saved as '{fileName}_results.png'")
             else:
                 print("No solutions were found to plot.")
