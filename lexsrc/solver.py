@@ -38,3 +38,18 @@ def solveEpsilon(instance, model, epsilonValue):
         infra = ampl.getValue("CostoInfra")
         return transp, infra
     return None, None
+
+# Filter out dominated points from the epsilon front
+def filterEpsilonFront(points):
+    filtered = []
+    for p1 in points:
+        isDominated = False
+        for p2 in points:
+            # Strong dominance check: p1 is worse than p2 in both objectives
+            if p1[0] >= p2[0] and p1[1] >= p2[1] and p1 != p2:
+                isDominated = True
+                break
+        if not isDominated:
+            filtered.append(p1)
+    # Sort by Infrastructure (Y) to ensure a continuous line plot
+    return sorted(filtered, key=lambda p: p[1])

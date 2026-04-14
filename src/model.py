@@ -1,10 +1,11 @@
 from amplpy import AMPL, ampl_notebook
 
 class paretoPoint:
-    def __init__(self, Infrastructure, Transport, state):
+    def __init__(self, Infrastructure, Transport, state, explored):
         self.Infrastructure = Infrastructure
         self.Transport = Transport
         self.state = state
+        self.explored = explored #Solo se utiliza en el PLS con busqueda en un unico punto, para marcar los puntos que ya han sido explorados
 
 class cd:
   def __init__(self, id, capacity, fixedCost, reorderCost, holdingCost, leadTime, replenishmentCost):
@@ -53,6 +54,9 @@ param K;
 param TH;
 param Alpha default 0.5; # Parámetro para ponderar los objetivos
 
+#param maxInfra default 1;
+#param maxTransp default 1;
+
 var Z{i in I} binary;
 var Y{i in I,j in J} binary;
 var D{i in I} >= 0;
@@ -71,6 +75,8 @@ var TransportCost = sum{i in I, j in J} TH * (RC[i] + TC[i,j]) * d[j] * Y[i,j];
 
 minimize TotalCost:
     InfrastructureCost * Alpha + TransportCost * (1-Alpha);
+
+    #(CostoInfra/maxInfra) * alpha + (CostoTransp/maxTransp) * (1-alpha);
 
 s.t. Assign{j in J}: sum{i in I} Y[i,j] = 1;
 s.t. Capacity{i in I}: sum{j in J} d[j]*Y[i,j] <= Cap[i]*Z[i];

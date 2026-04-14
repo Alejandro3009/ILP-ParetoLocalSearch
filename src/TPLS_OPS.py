@@ -85,58 +85,56 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
 
     return validTabuPoints, solverTime
 
-def getNeighbor(cdList, nonDominatedPoints, tabu, movementSize, totalDemand, K, TH):
+def getNeighbor(cdList, point, tabu, movementSize, totalDemand, K, TH):
     neighborhood = []
     tabuNeighborhood = []
     neighborMovements = []
+    i = 0
+    openCds = []
+    closeCds = []
 
-    for point in nonDominatedPoints:
-        i = 0
-        openCds = []
-        closeCds = []
-
-        for j in range(len(point.state)):
-            if point.state[j] == 1:
-                openCds.append(j)
-            else:
-                closeCds.append(j)
+    for j in range(len(point.state)):
+        if point.state[j] == 1:
+            openCds.append(j)
+        else:
+            closeCds.append(j)
         
-        while i < 10: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
-            changedState = list(point.state)
+    while i < 30: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
+        changedState = list(point.state)
 
-            openAmount = random.randint(0, movementSize)
-            closeAmount = random.randint(0, movementSize)
+        openAmount = random.randint(0, movementSize)
+        closeAmount = random.randint(0, movementSize)
 
-            moves = {}
+        moves = {}
 
-            if len(closeCds) != 0:
-                for j in range(openAmount):
-                    cdToMove = random.choice(closeCds)
-                    changedState[cdToMove] = 1
-                    moves[cdToMove] = 1
-                    print(f"abierto: {cdToMove}")
+        if len(closeCds) != 0:
+            for j in range(openAmount):
+                cdToMove = random.choice(closeCds)
+                changedState[cdToMove] = 1
+                moves[cdToMove] = 1
+                print(f"abierto: {cdToMove}")
 
-            for j in range(closeAmount):
-                print("cerrados")
-                cdToMove = random.choice(openCds)
-                changedState[cdToMove] = 0
-                moves[cdToMove] = 0
-                print(f"cerrado: {cdToMove}") 
+        for j in range(closeAmount):
+            print("cerrados")
+            cdToMove = random.choice(openCds)
+            changedState[cdToMove] = 0
+            moves[cdToMove] = 0
+            print(f"cerrado: {cdToMove}") 
 
-            if not feasibleSolution(changedState, cdList, totalDemand):
-                continue
+        if not feasibleSolution(changedState, cdList, totalDemand):
+            continue
 
-            if isTabu(moves, tabu):
-                changedState = tuple(changedState)
-                tabuNeighborhood.append(changedState)
-                neighborMovements.append(movements(changedState, moves))
-            else:
-                print("no es tabu")
-                changedState = tuple(changedState)
-                neighborhood.append(changedState)
-                neighborMovements.append(movements(changedState, moves))
+        if isTabu(moves, tabu):
+            changedState = tuple(changedState)
+            tabuNeighborhood.append(changedState)
+            neighborMovements.append(movements(changedState, moves))
+        else:
+            print("no es tabu")
+            changedState = tuple(changedState)
+            neighborhood.append(changedState)
+            neighborMovements.append(movements(changedState, moves))
 
-            i += 1
+        i += 1
             
     return neighborhood, tabuNeighborhood, neighborMovements
 
@@ -226,7 +224,7 @@ def removeDuplicatePoints(pointsList):
 
     return list(uniquePoints.values())
 
-def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, movementSize = 3, tabuTenure = 20, amountToAdd = 5, alphaValue = 0.5):
+def onePointParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, movementSize = 3, tabuTenure = 20, amountToAdd = 5, alphaValue = 0.5):
     # 1. Inicialización y obtencion de parametros
     totalDemand = getTotalDemand(clientList)
     nonDominatedPoints = []
@@ -248,15 +246,18 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
     stopped = [False, None]
 
     while i < iterationLimit: 
+        print(f"Iteracion {i+1}/{iterationLimit}")
         # 2. Generar vecinos y remover duplicados
-        neighborhood, tabuNeighborhood, neighborMovements = getNeighbor(cdList, nonDominatedPoints, tabu, 
+        for point in nonDominatedPoints:
+            if point.explored == False:
+                point.explored = True
+                neighborhood, tabuNeighborhood, neighborMovements = getNeighbor(cdList, point, tabu, 
                                                                         movementSize, totalDemand, K, TH)
+                break
 
         neighborhood = removeDuplicateStates(neighborhood)
 
         tabuNeighborhood = removeDuplicateStates(tabuNeighborhood)
-
-        print (f"Iteración {i+1}/{iterationLimit} - Vecinos generados: {len(neighborhood)} - Vecinos tabu: {len(tabuNeighborhood)}")
 
         # 3. Evaluar vecinos marcados como tabu con criterio de aspiración
         if len(tabuNeighborhood) > 0:
@@ -264,8 +265,6 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
             solverTime += time
 
         notFound, alreadyFound = checkIfFound(neighborhood, foundPoints)
-
-        print (f"Iteración {i+1}/{iterationLimit} - Vecinos encontrados: {len(notFound) + len(alreadyFound)}, Vecinos nuevos: {len(notFound)}")
 
         # 4. Evaluar vecinos no encontrados
         paretoPoints, time  = calculateFitnessParallel(cdList, clientList, K, TH, notFound, alphaValue=alphaValue)
@@ -281,17 +280,18 @@ def tabuLocalParetoSearch(cdList, clientList, K, TH, iterationLimit = 50, moveme
         if len(alreadyFound) > 0:
             paretoPoints.extend(alreadyFound)
 
-        for point in paretoPoints:
-            print(f"state {point.state}, Infra: {point.Infrastructure}, Transport: {point.Transport}")
-
         # 5. Actualizar el frente de Pareto con la funcion de dominancia
         previousFrontStates = set(p.state for p in nonDominatedPoints)
+        
+        print(f"Iteracion: {i}, Cantidad de puntos en el frente de pareto: {len(nonDominatedPoints)}. ANTES DE DESCARTE")    
         
         nonDominatedPoints, tabuRate = checkDominance(paretoPoints, nonDominatedPoints, neighborMovements)
 
         # 5.1 Criterio de parada por falta de mejora
         currentFrontStates = set(p.state for p in nonDominatedPoints)
         foundNewPoint = not currentFrontStates.issubset(previousFrontStates) 
+
+        print(f"Iteracion: {i}, Cantidad de puntos en el frente de pareto: {len(nonDominatedPoints)}. DESPUES DE DESCARTE")  
 
         if foundNewPoint:
             iterationwithoutImprovement = 0

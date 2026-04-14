@@ -82,7 +82,7 @@ def solve_single_state(args):
     # Use your existing rebalance logic
     new_state, new_infra = rebalanceStates(list(state), cdList, asignacion, infra_cost)
 
-    return paretoPoint(new_infra, trans_cost, tuple(new_state)), solveResult
+    return paretoPoint(new_infra, trans_cost, tuple(new_state), False), solveResult
 
 def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
     paretoPoints = []
@@ -112,7 +112,7 @@ def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
 
         print(state, infra_cost)
 
-        paretoPoints.append(paretoPoint(infra_cost, trans_cost, tuple(state)))
+        paretoPoints.append(paretoPoint(infra_cost, trans_cost, tuple(state), False))
 
     time1 = time()
     return paretoPoints, time1 - time0
