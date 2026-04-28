@@ -27,7 +27,8 @@ def solveEpsilon(instance, model, epsilonValue):
     ampl.param["epsilon"] = epsilonValue
     ampl.setOption("solver", "gurobi")
     
-    ampl.setOption("gurobi_options", "outlev=0") 
+    ampl.setOption("gurobi_options", "outlev=0")
+    ampl.setOption("relax_integrality", 1)
     ampl.option["gurobi_options"] = "NonConvex=2 MIPGap=1e-8 FeasTol=1e-9 BarConvTol=1e-9 timelimit=1800"
     
     ampl.solve()

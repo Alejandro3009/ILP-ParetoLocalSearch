@@ -46,6 +46,7 @@ s.t. QuadDemand{i in I}: QD[i] * QD[i] >= D[i];
 s.t. QuadVar{i in I}: QU[i] * QU[i] >= U[i];
 
 """
+#minInf = CotoInfra;
 
 mTransport = r"""
 set I; 
@@ -82,6 +83,7 @@ var CostoTransp = sum{i in I, j in J} TH * (RC[i] + TC[i,j]) * d[j] * Y[i,j];
 minimize TotalCost:
     CostoTransp;
 
+    #st CostoInfra <= minInf
 s.t. epsilonConstraint: CostoInfra <= epsilon;
 s.t. Assign{j in J}: sum{i in I} Y[i,j] = 1;
 s.t. Capacity{i in I}: sum{j in J} d[j]*Y[i,j] <= Cap[i]*Z[i];

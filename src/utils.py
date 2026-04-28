@@ -129,15 +129,7 @@ def printSummary(cds, clients, K, TH):
             print("  - WARNING: TC values are still 0.0. Triplets not found.")
     print("="*55 + "\n")
 
-def randomSolution(cdList, clientList):
-    for client in clientList:
-        chosen = random.choice(cdList)
-        client.assignedCd = chosen.id
-        chosen.open = True
-        chosen.assignedDemand += client.demand
-        chosen.assignedVariance += client.variance
-
-def getStateTuple(cdList):
+def getStateTuple(cdList, clientList=None):
     aux = list(c.open for c in cdList)
     for i in range(len(aux)):
         if aux[i] == True:
@@ -154,29 +146,42 @@ def getTotalDemand(clientList):
         totalVariance += client.variance
     return totalDemand + totalVariance
 
-def calcularHipervolumen(puntos, refX, refY):
+def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
     if len(puntos) == 0:
         return 0.0
 
-    sortedPoints = sorted(puntos, key=lambda p: p[0])
-    print(sortedPoints)
+    rangoX = maxX - minX if maxX > minX else 1.0
+    rangoY = maxY - minY if maxY > minY else 1.0
+
+    puntos_norm = []
+    for p in puntos:
+        nx = (p[0] - minX) / rangoX
+        ny = (p[1] - minY) / rangoY
+        puntos_norm.append((nx, ny))
+
+    sortedPoints = sorted(puntos_norm, key=lambda p: p[0])
+
     hipervolumen = 0.0
+
+    refX_norm = 1.0 
+    refY_norm = 1.0
 
     for i in range(len(sortedPoints)):
         xx = sortedPoints[i][0]
         yy = sortedPoints[i][1]
 
-        if xx <= refX or yy <= refY:
+        if xx <= refX_norm and yy <= refY_norm:
             if i + 1 < len(sortedPoints):
                 nextX = sortedPoints[i + 1][0]
             else:
-                nextX = refX
+                nextX = refX_norm
 
             width = nextX - xx
-            height = refY - yy
+            height = refY_norm - yy
 
-            area = width * height
-            hipervolumen += area
+            if width > 0 and height > 0:
+                area = width * height
+                hipervolumen += area
 
     return hipervolumen
 

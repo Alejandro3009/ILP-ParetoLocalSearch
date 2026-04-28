@@ -1,12 +1,14 @@
 import concurrent.futures
+import random
 from time import time
-from amplpy import AMPL, ampl_notebook
-from src.model import cd, client, paretoPoint, modelo
+from amplpy import AMPL
+from src.model import cd, client, paretoPoint, SilentOutputHandler, modelo
 
 ampl = AMPL()
 ampl.eval(modelo)
 ampl.setOption("solver","gurobi")
 ampl.option['gurobi_options'] = 'NonConvex=2 MIPGap=0.05'
+ampl.setOutputHandler(SilentOutputHandler())
 
 def instanceToAmpl(cdList, clientList, k, th):
     I_set = [c.id for c in cdList]
@@ -48,7 +50,7 @@ def rebalanceStates(state, cdList, asignacion, infra_cost):
 
 def solve_single_state(args):
     """Worker function: Solves one state in a private AMPL instance."""
-    state, cdList, clientList, K, TH, alphaValue = args
+    state, cdList, clientList, K, TH, alphaValue, lexPoints = args
     
     # Each process MUST have its own AMPL object
     worker_ampl = AMPL()
@@ -56,7 +58,8 @@ def solve_single_state(args):
     worker_ampl.setOption("solver", "gurobi") 
     worker_ampl.setOption("presolve", 0)
     worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
-    
+    worker_ampl.setOutputHandler(SilentOutputHandler())
+
     # Set data and fix Z variables [cite: 71]
     amplDataFix = instanceToAmpl(cdList, clientList, K, TH)
     worker_ampl.eval(amplDataFix)
@@ -64,6 +67,10 @@ def solve_single_state(args):
         worker_ampl.eval(f"fix Z[{i}] := {val};")
 
     worker_ampl.param['Alpha'] = alphaValue
+
+    if lexPoints is not None:
+        worker_ampl.param['maxInfra'] = lexPoints[1]
+        worker_ampl.param['maxTransp'] = lexPoints[0]
 
     worker_ampl.solve()
     
@@ -84,7 +91,108 @@ def solve_single_state(args):
 
     return paretoPoint(new_infra, trans_cost, tuple(new_state), False), solveResult
 
-def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
+def calculateFitnessParallel(cdList, clientList, K, TH, statesList, max_workers=10, alphaValue=0.5, lexPoints=None):
+    """Parallel coordinator."""
+    time0 = time()
+    
+    # Prepare arguments for each worker
+    tasks = [(state, cdList, clientList, K, TH, alphaValue, lexPoints) for state in statesList]
+    
+    paretoPoints = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Map tasks to workers
+        results = list(executor.map(solve_single_state, tasks))
+
+        for result in results:
+            if result[0] is None:
+                print("Warning: One of the states could not be solved.")
+            else:
+                paretoPoints.append(result[0])
+
+        print(f"amount of states solved: {len(paretoPoints)} out of {len(results)}")
+    
+    time1 = time()
+    return paretoPoints, time1 - time0
+
+def fixAssignment(state):
+    return [1 if val[1] >= 0.3 else 0 for val in state]
+
+def solve_single_relax_state(args):
+    state, cdList, clientList, K, TH, fixingSize, alphaValue, lexPoints, tabuList = args
+    
+    # Each process MUST have its own AMPL object
+    worker_ampl = AMPL()
+    worker_ampl.eval(modelo)
+    worker_ampl.setOption("solver", "gurobi") 
+    worker_ampl.setOption("presolve", 0)
+    worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
+    worker_ampl.setOption("relax_integrality", 1)
+    worker_ampl.setOutputHandler(SilentOutputHandler())
+
+    # Set data and fix Z variables [cite: 71]
+    amplDataFix = instanceToAmpl(cdList, clientList, K, TH)
+    worker_ampl.eval(amplDataFix)
+
+    # Identify which CDs are NOT tabu
+    # We only want to fix variables that are NOT currently restricted by Tabu
+    nonTabuIndices = [i for i in range(len(state)) if tabuList.get(i) is None]
+    
+    # Calculate how many to fix based on the available non-tabu population
+    kToFix = min(len(nonTabuIndices), int(len(state) * fixingSize))
+    indicesToFix = random.sample(nonTabuIndices, k=kToFix)
+
+    for i in indicesToFix:
+        worker_ampl.eval(f"fix Z[{i}] := {state[i]};")
+
+    worker_ampl.param['Alpha'] = alphaValue
+
+    if lexPoints is not None:
+        worker_ampl.param['maxInfra'] = lexPoints[1]
+        worker_ampl.param['maxTransp'] = lexPoints[0]
+
+    worker_ampl.solve()
+    
+    if worker_ampl.getValue("solve_result") != "solved":
+        print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
+        return None, worker_ampl.getValue("solve_result")
+
+    asignacionZ = worker_ampl.get_variable("Z").get_values().toList()
+    solveResult = worker_ampl.getValue("solve_result")
+    
+    print(asignacionZ)
+
+    # Close session to free memory
+    worker_ampl.close()
+    
+    # Use your existing rebalance logic
+    fixState = fixAssignment(asignacionZ)
+
+    return  tuple(fixState), solveResult
+
+def parallelLinearRelaxation(statesList, cdList, clientList, K, TH, fixingSize, max_workers=10, alphaValue=0.5, lexPoints=None, tabuList=None):
+    """Parallel coordinator."""
+    time0 = time()
+    
+    # Prepare arguments for each worker
+    tasks = [(state, cdList, clientList, K, TH, fixingSize, alphaValue, lexPoints, tabuList) for state in statesList]
+    
+    relaxStates = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Map tasks to workers
+        results = list(executor.map(solve_single_relax_state, tasks))
+
+        for result in results:
+            if result[1] is None:
+                print("Warning: One of the states could not be solved.")
+            else:
+                relaxStates.append(result[0])
+    
+    time1 = time()
+    return relaxStates, time1 - time0
+
+
+
+#def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
     paretoPoints = []
 
     time0 = time() 
@@ -114,28 +222,5 @@ def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
 
         paretoPoints.append(paretoPoint(infra_cost, trans_cost, tuple(state), False))
 
-    time1 = time()
-    return paretoPoints, time1 - time0
-
-def calculateFitnessParallel(cdList, clientList, K, TH, statesList, max_workers=10, alphaValue=0.5):
-    """Parallel coordinator."""
-    time0 = time()
-    
-    # Prepare arguments for each worker
-    tasks = [(state, cdList, clientList, K, TH, alphaValue) for state in statesList]
-    
-    paretoPoints = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
-        results = list(executor.map(solve_single_state, tasks))
-
-        for result in results:
-            if result[1] is None:
-                print("Warning: One of the states could not be solved.")
-            else:
-                paretoPoints.append(result[0])
-
-        print(f"amount of states solved: {len(paretoPoints)} out of {len(results)}")
-    
     time1 = time()
     return paretoPoints, time1 - time0

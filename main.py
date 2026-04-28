@@ -10,11 +10,12 @@ from collections import deque
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from amplpy import AMPL, ampl_notebook
-from src.PLS import paretoLocalSearch
-from src.utils import getStateTuple, loadJsonInstance, loadTextInstance, printSummary, randomSolution, calcularHipervolumen, exportData, readLexicographicData
+from src.movements import generateInitialSolution
+from src.utils import loadTextInstance, printSummary, calcularHipervolumen, exportData
+from src.solver import calculateFitnessParallel
 from src.TPLS_MPS import MultiPointParetoSearch
 from src.TPLS_OPS import onePointParetoSearch
-from lexsrc.model import instanceToAmpl, mTransport, mInfrastructure
+from lexsrc.model import mTransport, mInfrastructure
 from lexsrc.solver import solveInstance, solveEpsilon, filterEpsilonFront
 from lexsrc.utils import saveEpsilonFront, loadEpsilonResults
 
@@ -34,9 +35,9 @@ instancesGrok = [
 ]
 
 instancesGemini = [
-    #"https://gist.github.com/athersoft/e0bfbcdc2bf4beda0ba81daeb87b8a2d/raw/ec7e78f81a177649f83e1fead4054adab51357a0/80x40-gemini.dat",
-    #"https://gist.github.com/athersoft/b3ce8c66ce3c51e174d81a7ca9eaefd9/raw/916f23718c276601df5a0631c1c59421470767b9/100x50-gemini.dat",
-    #"https://gist.githubusercontent.com/athersoft/3853f927779746cb3b8fb8650b8ff4d3/raw/c49a3b1d259d99d38b8c14daa33c6672d403924b/120x60-gemini.dat",
+    "https://gist.github.com/athersoft/e0bfbcdc2bf4beda0ba81daeb87b8a2d/raw/ec7e78f81a177649f83e1fead4054adab51357a0/80x40-gemini.dat",
+    "https://gist.github.com/athersoft/b3ce8c66ce3c51e174d81a7ca9eaefd9/raw/916f23718c276601df5a0631c1c59421470767b9/100x50-gemini.dat",
+    "https://gist.githubusercontent.com/athersoft/3853f927779746cb3b8fb8650b8ff4d3/raw/c49a3b1d259d99d38b8c14daa33c6672d403924b/120x60-gemini.dat",
     "https://gist.githubusercontent.com/athersoft/1b2d3540308e38df4cd8cbaf28348593/raw/2f111b387f7d51e3d850ac1905e8d6f72b07d4b3/140x70-gemini.dat",
     "https://gist.github.com/athersoft/1a26d2dfe533bf2b31fcda682d1b82e7/raw/435db55d97f212e22d8a82bf1d4de3afec6fcd14/100x200-gemini.dat"
 ]
@@ -65,15 +66,24 @@ topologicos = [
     "https://gist.githubusercontent.com/athersoft/b738c1d009151e4c881beca1a78bbcdb/raw/d46c9ab38337d3618b1e67eb8a2868c12592d3e3/50x100_topologico"
 ]
 
+instanciasParaElPaper = [
+    "https://gist.githubusercontent.com/athersoft/118f95592d497f953e4f8ef3ee8b9d8b/raw/f734c167ba3d9ddbe6a54c3c7add84d93508b96e/25x50_topologico",
+    "https://gist.githubusercontent.com/athersoft/bf02498ff184b433148c77bdf18f8960/raw/10cf7213cb17f488affe614031ff4494892cf350/15x30_topologico",
+    "https://gist.githubusercontent.com/athersoft/61aa11e8d3cef6584417439e5fcc4808/raw/bc28fbcea9b088c0abec974fa5537a6e02d9da98/infraestructuraProhibitiva",
+    "https://gist.githubusercontent.com/athersoft/3853f927779746cb3b8fb8650b8ff4d3/raw/c49a3b1d259d99d38b8c14daa33c6672d403924b/120x60-gemini.dat"
+]
+
+test = ["https://gist.githubusercontent.com/athersoft/118f95592d497f953e4f8ef3ee8b9d8b/raw/f734c167ba3d9ddbe6a54c3c7add84d93508b96e/25x50_topologico"]
+
 #Inicialización de variables globales y constantes
 license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
 experimentAmount = 1
-iterationAmount = 200
-movementSize = 5
+iterationAmount = 50
+movementSize = 10
 alpha = 0.5
 
-instances = [instancesGemini]
-instancesNames = ["Gemini"]
+instances = [test]
+instancesNames = ["Topologico 25x50"]
 #instances = [instancesSpecial]
 #instancesNames = ["inventario absurdo", "infraestructura prohibitiva", "demanda extrema", "capacidad restringida", "alta dispersion"]
 
@@ -83,7 +93,7 @@ instancesNames = ["Gemini"]
 
 if __name__ == "__main__":
     for i in range(len(instances)):
-        j = 4
+        j = 0
 
         for currentUrl in instances[i]: #
             currentInstance = ""
@@ -143,7 +153,7 @@ if __name__ == "__main__":
 
                 timeEnd = time()
 
-                hvEpsilon = calcularHipervolumen(list(zip(paretoY, paretoX)), infraMax, transportMax)
+                hvEpsilon = calcularHipervolumen(list(zip(paretoY, paretoX)), transportMin, transportMax, infraMin, infraMax)
 
                 epsilonInfo = {
                 'transMin': transportMin, 
@@ -158,7 +168,6 @@ if __name__ == "__main__":
 
                 saveEpsilonFront("epsilon_results.json", currentUrl, epsilonInfo)
 
-                j+=1
             else:
                 transportMin = epsilonInfo['transMin']
                 transportMax = epsilonInfo['transMax']
@@ -166,12 +175,13 @@ if __name__ == "__main__":
                 infraMax = epsilonInfo['infraMax']
                 paretoX = epsilonInfo['paretoX']
                 paretoY = epsilonInfo['paretoY']
-                j+=1
+
 
             # 3. Obtener una solución inicial aleatoria
-            randomSolution(cdList, clientList)
-            initialState = getStateTuple(cdList)
-            
+            generationMethod = 0 # 0 para aleatoria, 1 para dual-priority list
+            initialState = generateInitialSolution(generationMethod, cdList, clientList)
+            initialPoints, _ = calculateFitnessParallel(cdList, clientList, K, TH, initialState, max_workers=10, alphaValue=alpha, lexPoints=[transportMax, infraMax])
+            print (f"solucion inicial: {initialState}")
             # 4. Ejecutar la busqueda local
             experimentRegistry = []
             iteration = 0
@@ -179,21 +189,23 @@ if __name__ == "__main__":
             while iteration < experimentAmount:
                 if alpha == 1:
                     break
-                if 1==2:
-                    fileName = f"{instancesNames[i]}_{j}_MultiPointTPLS"
+                if 1==1:
+                    fileName = f"{instancesNames[i]}_{j}_SteppestDescent"
                     timeStart = time()
-                    finalParetoFront, solverTime, stopped = MultiPointParetoSearch(cdList, clientList, K, TH, iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
+                    finalParetoFront, solverTime, stopped = MultiPointParetoSearch(initialState, cdList, clientList, K, TH, [1,1], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
                     timeEnd = time()
                 else:
-                    fileName = f"{instancesNames[i]}_{j}_OnePointTPLS"
+                    fileName = f"{instancesNames[i]}_{j}_FirstDescent"
                     timeStart = time()
-                    finalParetoFront, solverTime, stopped = onePointParetoSearch(cdList, clientList, K, TH, iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
+                    finalParetoFront, solverTime, stopped = onePointParetoSearch(initialState, cdList, clientList, K, TH, [transportMax, infraMax], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
                     timeEnd = time()
+                
+                iteration += 1
 
                 # 5. Calculate Hypervolume for this instance
                 # Convert objects to (x, y) tuples for your HV function
                 hvPoints = [(p.Infrastructure, p.Transport) for p in finalParetoFront]
-                hvValue = calcularHipervolumen(hvPoints, infraMax, transportMax)
+                hvValue = calcularHipervolumen(hvPoints, transportMin, transportMax, infraMin, infraMax)
 
                 tplsInfo = {
                 'executionTime': timeEnd - timeStart,
@@ -208,8 +220,6 @@ if __name__ == "__main__":
                 else:
                     tplsInfo['stopped'] = False
                     tplsInfo['amountIterations'] = iterationAmount
-                
-                iteration += 1
 
             exportData(currentUrl, cdList, clientList, epsilonInfo, True, tplsInfo, fileName)
 
@@ -226,7 +236,7 @@ if __name__ == "__main__":
                 # Plot the lexicographic points for reference
                 # In main.py, change the order to (Infra, Transport)
                 plt.scatter([transportMin, transportMax], [infraMax, infraMin], c=['blue', 'red'])
-                plt.plot(paretoX, paretoY, marker='o', linestyle='-', color='green', label='Lexicographic') 
+                plt.plot(paretoX, paretoY, marker='o', linestyle='-', color='green', label='Epsilon Frontier') 
 
                 # Plot individual points
                 plt.scatter(trans_costs, infra_costs, color='purple', zorder=5, label='Pareto Optimal Points')
@@ -237,6 +247,11 @@ if __name__ == "__main__":
                 x_line = [p.Infrastructure for p in sorted_front]
                 y_line = [p.Transport for p in sorted_front]
                 plt.plot(y_line, x_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
+
+                # Highlight the initial solution
+                initialInfra = [p.Infrastructure for p in initialPoints]
+                initialTrans = [p.Transport for p in initialPoints]
+                plt.scatter(initialTrans, initialInfra, color='orange', marker='X', s=100, label='Initial Solution')
 
                 # Labels and Titles
                 plt.title(f"Results for {fileName}")
@@ -251,3 +266,5 @@ if __name__ == "__main__":
                 print(f"Visualisation saved as '{fileName}_results.png'")
             else:
                 print("No solutions were found to plot.")
+            
+            j+=1
