@@ -1,0 +1,77 @@
+==================================================
+         REPORTE DE EJECUCIÓN MULTIOBJETIVO       
+==================================================
+URL Instancia Evaluada: https://gist.githubusercontent.com/athersoft/118f95592d497f953e4f8ef3ee8b9d8b/raw/f734c167ba3d9ddbe6a54c3c7add84d93508b96e/25x50_topologico
+Tamaño de Instancia: 25 CDs
+
+CARACTERIZACIÓN DE LA INSTANCIA
+--- Análisis de la Instancia ---
+Costos Fijos (F):
+  - Promedio: 30225.92
+  - Desv. Estándar: 7859.60
+  - Coef. Variación (CV): 26.00%
+Capacidades (Cap):
+  - Promedio: 1746.80
+  - Desv. Estándar: 401.74
+  - Coef. Variación (CV): 23.00%
+Demandas (d):
+  - Promedio: 61.40
+  - Desv. Estándar: 15.77
+  - Coef. Variación (CV): 25.68%
+Costos de Transporte (TC):
+  - Promedio: 108.97
+  - Desv. Estándar: 51.10
+  - Coef. Variación (CV): 46.89%
+
+Análisis de Tensión:
+  - Demanda Total de la Red: 3070.00
+  - Capacidad Total de CDs : 43670.00
+  - Ratio (Cap/Dem)        : 14.22x (Holgada)
+--------------------------------
+
+RESULTADOS EPSILON-CONSTRAINT
+Tiempo de ejecución : 11313.3847 segundos
+Hipervolumen        : 1010244557330500.0000
+Puntos Lexicográficos (Extremos del Frente):
+  - Nadir: Transp=2029291000.00, Infra=5888023.67
+  - Transp. Mín   : Transp=1678832000.00, Infra=5888023.67
+  - Infra. Mín    : Transp=2029291000.00, Infra=2504844.17
+
+Puntos del Frente (18 steps):
+  Punto 1: Transp=1678832000.00, Infra=5888023.67
+  Punto 2: Transp=1679233000.00, Infra=5487517.78
+  Punto 3: Transp=1682573000.00, Infra=5136161.86
+  Punto 4: Transp=1686767000.00, Infra=4760297.17
+  Punto 5: Transp=1692334000.00, Infra=4384388.33
+  Punto 6: Transp=1701656000.00, Infra=4008375.98
+  Punto 7: Transp=1717396000.00, Infra=3777715.12
+  Punto 8: Transp=1721055000.00, Infra=3587222.81
+  Punto 9: Transp=1756689000.00, Infra=3299928.64
+  Punto 10: Transp=1760385000.00, Infra=3256661.83
+  Punto 11: Transp=1773399000.00, Infra=2876813.15
+  Punto 12: Transp=1794524000.00, Infra=2846777.39
+  Punto 13: Transp=1831984000.00, Infra=2714025.64
+  Punto 14: Transp=1873241000.00, Infra=2627904.09
+  Punto 15: Transp=1912056000.00, Infra=2622368.82
+  Punto 16: Transp=1949982000.00, Infra=2587474.41
+  Punto 17: Transp=1990027000.00, Infra=2543925.86
+  Punto 18: Transp=2029291000.00, Infra=2504844.17
+
+RESULTADOS HEURÍSTICA (TPLS)
+** El TPLS se detuvo prematuramente en la iteración 16 de 50 debido a falta de mejora. **
+Tiempo de ejecución : 943.6093 segundos
+Hipervolumen        : 0.6322
+
+Frente de Pareto Final - 8 puntos:
+  Punto 1: Transp=1801046000.00, Infra=2720923.88 | State: (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
+  Punto 2: Transp=1799802000.00, Infra=2721389.93 | State: (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
+  Punto 3: Transp=1798125000.00, Infra=2978793.16 | State: (1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 4: Transp=1852646000.00, Infra=2638840.23 | State: (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 5: Transp=1799157000.00, Infra=2722041.13 | State: (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
+  Punto 6: Transp=1970572000.00, Infra=2603590.96 | State: (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)
+  Punto 7: Transp=1839398000.00, Infra=2639949.35 | State: (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 8: Transp=1799017000.00, Infra=2722141.82 | State: (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
+
+COMPARATIVA ESTADÍSTICA
+Calidad del TPLS vs Exacto : 0.00% (Cobertura del Hipervolumen)
+Aceleración de Tiempo      : El TPLS fue 11.99x más rápido que Epsilon

@@ -73,6 +73,18 @@ instanciasParaElPaper = [
     "https://gist.githubusercontent.com/athersoft/3853f927779746cb3b8fb8650b8ff4d3/raw/c49a3b1d259d99d38b8c14daa33c6672d403924b/120x60-gemini.dat"
 ]
 
+instanciasParaLaPresentacion = [
+    "https://gist.githubusercontent.com/athersoft/3e4fdb3ee806d5cca5c2c1952e1de007/raw/acc503904e7972867591104ff55240c6ddb2dcdb/80x40-grok",
+    "https://gist.githubusercontent.com/athersoft/39e316457aa8b8eb03b51ebae423f316/raw/97ea051b3c129ff0c6aeffad92ef8da34cd5693f/100x50-grok.dat",
+    "https://gist.githubusercontent.com/athersoft/6daf6a7b4ac2062662601f83e1d2d2bd/raw/96468a3c756cb9d578e5e68c8b6c62d88c9addac/120x60-grok.dat",
+    "https://gist.githubusercontent.com/athersoft/118f95592d497f953e4f8ef3ee8b9d8b/raw/f734c167ba3d9ddbe6a54c3c7add84d93508b96e/25x50_topologico",
+    "https://gist.githubusercontent.com/athersoft/bf02498ff184b433148c77bdf18f8960/raw/10cf7213cb17f488affe614031ff4494892cf350/15x30_topologico",
+    "https://gist.github.com/athersoft/e0bfbcdc2bf4beda0ba81daeb87b8a2d/raw/ec7e78f81a177649f83e1fead4054adab51357a0/80x40-gemini.dat",
+    "https://gist.github.com/athersoft/b3ce8c66ce3c51e174d81a7ca9eaefd9/raw/916f23718c276601df5a0631c1c59421470767b9/100x50-gemini.dat",
+    "https://gist.githubusercontent.com/athersoft/3853f927779746cb3b8fb8650b8ff4d3/raw/c49a3b1d259d99d38b8c14daa33c6672d403924b/120x60-gemini.dat"
+
+]
+
 test = ["https://gist.githubusercontent.com/athersoft/118f95592d497f953e4f8ef3ee8b9d8b/raw/f734c167ba3d9ddbe6a54c3c7add84d93508b96e/25x50_topologico"]
 
 #Inicialización de variables globales y constantes
@@ -82,8 +94,8 @@ iterationAmount = 50
 movementSize = 10
 alpha = 0.5
 
-instances = [test]
-instancesNames = ["Topologico 25x50"]
+instances = [instanciasParaLaPresentacion]
+instancesNames = ["grok 80x40", "grok 100x50", "grok 120x60", "topologico 25x50", "topologico 15x30", "gemini 80x40", "gemini 100x50", "gemini 120x60"]
 #instances = [instancesSpecial]
 #instancesNames = ["inventario absurdo", "infraestructura prohibitiva", "demanda extrema", "capacidad restringida", "alta dispersion"]
 
@@ -153,7 +165,7 @@ if __name__ == "__main__":
 
                 timeEnd = time()
 
-                hvEpsilon = calcularHipervolumen(list(zip(paretoY, paretoX)), transportMin, transportMax, infraMin, infraMax)
+                hvEpsilon = calcularHipervolumen(list(zip(paretoX, paretoY)), transportMin, transportMax, infraMin, infraMax)
 
                 epsilonInfo = {
                 'transMin': transportMin, 
@@ -190,12 +202,12 @@ if __name__ == "__main__":
                 if alpha == 1:
                     break
                 if 1==1:
-                    fileName = f"{instancesNames[i]}_{j}_SteppestDescent"
+                    fileName = f"{instancesNames[j]}_SteppestDescent_Sin relajacion"
                     timeStart = time()
-                    finalParetoFront, solverTime, stopped = MultiPointParetoSearch(initialState, cdList, clientList, K, TH, [1,1], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
+                    finalParetoFront, solverTime, stopped = MultiPointParetoSearch(initialState, cdList, clientList, K, TH, [transportMax, infraMax], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
                     timeEnd = time()
                 else:
-                    fileName = f"{instancesNames[i]}_{j}_FirstDescent"
+                    fileName = f"{instancesNames[j]}_FirstDescent"
                     timeStart = time()
                     finalParetoFront, solverTime, stopped = onePointParetoSearch(initialState, cdList, clientList, K, TH, [transportMax, infraMax], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
                     timeEnd = time()
@@ -204,7 +216,7 @@ if __name__ == "__main__":
 
                 # 5. Calculate Hypervolume for this instance
                 # Convert objects to (x, y) tuples for your HV function
-                hvPoints = [(p.Infrastructure, p.Transport) for p in finalParetoFront]
+                hvPoints = [(p.Transport, p.Infrastructure) for p in finalParetoFront]
                 hvValue = calcularHipervolumen(hvPoints, transportMin, transportMax, infraMin, infraMax)
 
                 tplsInfo = {

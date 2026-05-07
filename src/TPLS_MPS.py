@@ -85,8 +85,7 @@ def AspirationCriteria(tabuState, nonDominatedPoints, foundPoints, cdList, clien
 
     return validTabuPoints, solverTime
 
-def hybridNeighborGeneration(nonDominatedPoints, cdList, clientList, K, TH, 
-                             fixingSize, alphaValue, lexPoints, tabu, movementSize):
+def hybridNeighborGeneration(nonDominatedPoints, cdList, clientList, K, TH, fixingSize, alphaValue, lexPoints, tabu, movementSize):
     totalDemand = getTotalDemand(clientList)
     neighborStates = []
     neighborMovements = []
@@ -94,11 +93,12 @@ def hybridNeighborGeneration(nonDominatedPoints, cdList, clientList, K, TH,
 
     for point in nonDominatedPoints:
         # 1. Rolling the dice: 50% chance for Relaxation, 50% for Standard Tabu
-        if random.random() < 0.5:
+        if random.random() > 1.5:
             # RELAXATION PATH
-            relaxNeighbors, relaxMovements = relaxNeighbor(point, cdList, clientList, K, TH, fixingSize, alphaValue, lexPoints, tabu)
+            relaxNeighbors, relaxMovements, aux = relaxNeighbor(point, cdList, clientList, K, TH, fixingSize, alphaValue, lexPoints, tabu)
             neighborStates.extend(relaxNeighbors)
             neighborMovements.extend(relaxMovements)
+            tabuNeighborhood.extend(aux)
         else:
             # STANDARD TABU PATH
             standardNeighbors, tabuNeighbors, standardMovements = getNeighbor(cdList, [point], tabu, movementSize, totalDemand, K, TH)
@@ -106,10 +106,7 @@ def hybridNeighborGeneration(nonDominatedPoints, cdList, clientList, K, TH,
             neighborMovements.extend(standardMovements)
             tabuNeighborhood.extend(tabuNeighbors)
     
-    if len(tabuNeighborhood) == 0:
-        return neighborStates, neighborMovements, []
-    else:
-        return neighborStates, neighborMovements, tabuNeighborhood
+    return neighborStates, neighborMovements, tabuNeighborhood
 
 # TPLS_MPS.py
 def relaxNeighbor(point, cdList, clientList, K, TH, fixingSize, alphaValue, lexPoints, tabu):
@@ -131,7 +128,7 @@ def relaxNeighbor(point, cdList, clientList, K, TH, fixingSize, alphaValue, lexP
         
         i += 1
 
-    return neighborStates, neighborMovements
+    return neighborStates, neighborMovements, []
 
 def getNeighbor(cdList, nonDominatedPoints, tabu, movementSize, totalDemand, K, TH):
     neighborhood = []
@@ -291,6 +288,8 @@ def MultiPointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, i
     while i < iterationLimit: 
         # 2. Generar vecinos y remover duplicados
         
+        print (f"Iteración {i+1}/{iterationLimit} - Generando vecinos...")
+
         neighborhood, neighborMovements, tabuNeighborhood = hybridNeighborGeneration(nonDominatedPoints, cdList, clientList, K, TH, fixingSize=movementSize, 
                                                                                      alphaValue=alphaValue, lexPoints=lexPoints, tabu=tabu, movementSize=movementSize)
 
@@ -305,6 +304,8 @@ def MultiPointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, i
         if len(tabuNeighborhood) > 0:
             validTabuPoints, time = AspirationCriteria(tabuNeighborhood, nonDominatedPoints, foundPoints, cdList, clientList, K, TH, alphaValue, lexPoints)
             solverTime += time
+        else :
+            validTabuPoints = []
 
         notFound, alreadyFound = checkIfFound(neighborhood, foundPoints)
 
@@ -316,7 +317,7 @@ def MultiPointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, i
         solverTime += time
 
         # Capture the states of the front BEFORE adding already known points
-        #previousFrontStates = set(p.state for p in nonDominatedPoints)
+        previousFrontStates = set(p.state for p in nonDominatedPoints)
 
         # Only consider points that were NOT previously found in this specific search
         newlyEvaluatedPoints = []
@@ -338,9 +339,11 @@ def MultiPointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, i
         currentFrontStates = set(p.state for p in nonDominatedPoints)
         # An improvement only counts if a NEW state was added that isn't in the "history"
         actualImprovement = any(p.state in currentFrontStates for p in newlyEvaluatedPoints)
+        frontChanged = not currentFrontStates.issubset(previousFrontStates)
 
-        if actualImprovement:
+        if actualImprovement and frontChanged:
             iterationwithoutImprovement = 0
+            print(f"Iteración {i+1}/{iterationLimit} - Nuevo punto no dominado encontrado! Total en el frente: {len(nonDominatedPoints)}")
         elif iterationwithoutImprovement >= 5:
             print("No se han encontrado nuevos puntos no dominados en las últimas 5 iteraciones, terminando búsqueda.")
             stopped = [True, i]
@@ -349,6 +352,7 @@ def MultiPointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, i
         else:
             iterationwithoutImprovement += 1
             i += 1
+            print(f"Iteración {i}/{iterationLimit} - No se encontraron nuevos puntos no dominados. Iteraciones sin mejora: {iterationwithoutImprovement}")
             continue
         
         nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
