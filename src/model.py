@@ -6,31 +6,27 @@ class paretoPoint:
         self.Transport = Transport
         self.state = state
         self.explored = explored #Solo se utiliza en el PLS con busqueda en un unico punto, para marcar los puntos que ya han sido explorados
-
+    
 class cd:
-  def __init__(self, id, capacity, fixedCost, reorderCost, holdingCost, leadTime, replenishmentCost):
-    self.id = id
-    self.capacity = capacity
-    self.fixedCost = fixedCost
-    self.reorderCost = reorderCost
-    self.holdingCost = holdingCost
-    self.leadTime = leadTime
-    self.replenishmentCost = replenishmentCost
-
-    self.assignedDemand = 0
-    self.assignedVariance = 0
-    self.open = False
+    def __init__(self, id, capacity, fixedCost, reorderCost, holdingCost, leadTime, replenishmentCost, posX, posY):
+        self.id = id
+        self.capacity = capacity
+        self.fixedCost = fixedCost
+        self.reorderCost = reorderCost
+        self.holdingCost = holdingCost
+        self.leadTime = leadTime
+        self.replenishmentCost = replenishmentCost
+        self.posX = posX
+        self.posY = posY
 
 class client:
-  def __init__(self, id, demand, variance):
-    self.id = id
-    self.demand = demand
-    self.variance = variance
-    self.transportCost = []
-    self.assignedCd = None
-
-    def getCost(cdId):
-      return self.transportCost[cdId]
+    def __init__(self, id, demand, variance, posX, posY):
+        self.id = id
+        self.demand = demand
+        self.variance = variance
+        self.transportCost = {}
+        self.posX = posX
+        self.posY = posY
   
 class movements: #clase utilizada unicamente en el tabu pareto local
     def __init__(self, changeState, moves):

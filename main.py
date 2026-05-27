@@ -1,3 +1,4 @@
+from amplpy import AMPL
 from matplotlib.dates import TH
 import numpy as np
 import requests
@@ -5,13 +6,11 @@ import matplotlib.pyplot as plt
 import sys
 import os
 from time import time
-from collections import deque
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from amplpy import AMPL, ampl_notebook
-from src.movements import generateInitialSolution
-from src.utils import loadTextInstance, printSummary, calcularHipervolumen, exportData
+from src.initialSolution import generateInitialSolution
+from src.utils import loadDatInstance, printSummary, calcularHipervolumen, exportData, loadConfig, parseNumCds
 from src.solver import calculateFitnessParallel
 from src.TPLS_MPS import MultiPointParetoSearch
 from src.TPLS_OPS import onePointParetoSearch
@@ -89,194 +88,210 @@ test = ["https://gist.githubusercontent.com/athersoft/118f95592d497f953e4f8ef3ee
 
 #Inicialización de variables globales y constantes
 license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
-experimentAmount = 1
-iterationAmount = 50
-movementSize = 10
-alpha = 0.5
-
-instances = [instanciasParaLaPresentacion]
-instancesNames = ["grok 80x40", "grok 100x50", "grok 120x60", "topologico 25x50", "topologico 15x30", "gemini 80x40", "gemini 100x50", "gemini 120x60"]
-#instances = [instancesSpecial]
-#instancesNames = ["inventario absurdo", "infraestructura prohibitiva", "demanda extrema", "capacidad restringida", "alta dispersion"]
-
-#instances = ["grok4_lexicographic_points.txt", instancesGrok[0], instancesGrok[1]]
-
-#epsilonFiles = True
 
 if __name__ == "__main__":
-    for i in range(len(instances)):
-        j = 0
+    configData = loadConfig("config.json")
+    numExperiments = configData["numExperiments"]
+    plsParams = configData["plsParams"]
+    instancesList = configData["instances"]
 
-        for currentUrl in instances[i]: #
-            currentInstance = ""
+    license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
+    dataUrl = ""
 
-            print(f"Descargando archivo .dat desde Gist...")
-            try:
-                response = requests.get(currentUrl)
-                response.raise_for_status()
-                currentInstance = response.text
+    getEpsilon = False
 
-            except Exception as e:
-                print(f"Error descargando: {e}")
+    for instanceName in instancesList: 
+        # 1. Cargar las intancias (ya sea desde el json o de las urls)
+        print(f"Ejecución de la instancia: {instanceName}")
 
-            # 1. Cargar las intancias (ya sea desde el json o de las urls)
-            cdList, clientList, K, TH = loadTextInstance(currentInstance)
-            printSummary(cdList, clientList, K, TH)
+        currentInstance = loadDatInstance(instanceName)
+            
+        numCds = parseNumCds(currentInstance)
+        print(f"Instancia cargada con {numCds} CDs candidatos.")
 
-            # 2. Obtener los puntos lexicográficos extremos para cada objetivo
-            epsilonInfo = loadEpsilonResults("epsilon_results.json", currentUrl)
+        # 2. Obtener los puntos lexicográficos extremos para cada objetivo
+        previousResults = loadEpsilonResults(f"fronts/{instanceName}.json", instanceName)
 
-            if epsilonInfo is None:
+        if previousResults is None and getEpsilon:
+            timeStart = time()
+            transportMin, aux = solveInstance(currentInstance, mTransport)
+            aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
+            
+            aux, infraMin = solveInstance(currentInstance, mInfrastructure)
+            transportMax, aux = solveInstance(currentInstance, mTransport, infraMin)
+
+            print(f"Punto X lexicográfico de infraestructura e inventario {transportMax}")
+            print(f"Punto Y lexicográfico de infraestructura e inventario {infraMin}")
+            print(f"Punto X lexicográfico de transporte: {transportMin}")
+            print(f"Punto Y lexicográfico de transporte: {infraMax}")
+
+            steps = 10
+            epsilonSteps = np.linspace(infraMin, infraMax, steps)
+
+            paretoX = []
+            paretoY = []
+            rawEpsilonPoints = []
+
+            for step in epsilonSteps:
+                transportCost, infraCost = solveEpsilon(currentInstance, mTransport, step)
+                if transportCost is not None:
+                    rawEpsilonPoints.append((transportCost, infraCost))
+
+            epsilonSteps = np.linspace(transportMin, transportMax, steps)
+
+            for step in epsilonSteps:
+                transportCost, infraCost = solveEpsilon(currentInstance, mInfrastructure, step)
+                if infraCost is not None:
+                    rawEpsilonPoints.append((transportCost, infraCost))
+            
+            # Filtrar puntos dominados del frente epsilon
+            finalEpsilonFront = filterEpsilonFront(rawEpsilonPoints)
+            paretoX = [p[0] for p in finalEpsilonFront]
+            paretoY = [p[1] for p in finalEpsilonFront]
+
+            timeEnd = time()
+
+            hvEpsilon = calcularHipervolumen(list(zip(paretoX, paretoY)), transportMin, transportMax, infraMin, infraMax)
+
+            epsilonInfo = {
+            'transMin': transportMin, 
+            'transMax': transportMax,
+            'infraMin': infraMin, 
+            'infraMax': infraMax,
+            'paretoX': paretoX, 
+            'paretoY': paretoY, 
+            'hv': hvEpsilon, 
+            'time': timeEnd - timeStart 
+            }
+
+            saveEpsilonFront(f"fronts/{instanceName}.json", instanceName, epsilonInfo)
+        elif not getEpsilon:
+            print("se decidio no resolver el epsilon para esta instancia")
+            transportMax = 1 
+            infraMax = 1
+        else:
+            transportMin = previousResults['transMin']
+            transportMax = previousResults['transMax']
+            infraMin = previousResults['infraMin']
+            infraMax = previousResults['infraMax']
+            paretoX = previousResults['paretoX']
+            paretoY = previousResults['paretoY']
+
+        # 3. Obtener una solución inicial aleatoria
+        initialState = generateInitialSolution(plsParams['operators']["initialization"], currentInstance)
+        initialPoints, _ = calculateFitnessParallel(currentInstance, initialState, max_workers=plsParams['maxWorkers'], alphaValue=plsParams['alpha'], lexPoints=[transportMax, infraMax])
+        print (f"solucion inicial: {initialState}")
+        # 4. Ejecutar la busqueda local
+        experimentRegistry = []
+        iteration = 0
+
+        for experiment in range(numExperiments):
+            print(f"Experimento {experiment+1}/{numExperiments} con alpha={plsParams['alpha']}")
+            
+            timeZero = time()
+
+            if plsParams['operators']['searchMethod'] == "multiPoint":
                 timeStart = time()
-                transportMin, aux = solveInstance(currentInstance, mTransport)
-                aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
-                
-                aux, infraMin = solveInstance(currentInstance, mInfrastructure)
-                transportMax, aux = solveInstance(currentInstance, mTransport, infraMin)
-
-                print(f"Punto X lexicográfico de infraestructura e inventario {transportMax}")
-                print(f"Punto Y lexicográfico de infraestructura e inventario {infraMin}")
-                print(f"Punto X lexicográfico de transporte: {transportMin}")
-                print(f"Punto Y lexicográfico de transporte: {infraMax}")
-
-                steps = 10
-                epsilonSteps = np.linspace(infraMin, infraMax, steps)
-
-                paretoX = []
-                paretoY = []
-                rawEpsilonPoints = []
-
-                for step in epsilonSteps:
-                    transportCost, infraCost = solveEpsilon(currentInstance, mTransport, step)
-                    if transportCost is not None:
-                        rawEpsilonPoints.append((transportCost, infraCost))
-
-                epsilonSteps = np.linspace(transportMin, transportMax, steps)
-
-                for step in epsilonSteps:
-                    transportCost, infraCost = solveEpsilon(currentInstance, mInfrastructure, step)
-                    if infraCost is not None:
-                        rawEpsilonPoints.append((transportCost, infraCost))
-                
-                # Filtrar puntos dominados del frente epsilon
-                finalEpsilonFront = filterEpsilonFront(rawEpsilonPoints)
-                paretoX = [p[0] for p in finalEpsilonFront]
-                paretoY = [p[1] for p in finalEpsilonFront]
-
+                finalParetoFront, solverTime, stopped = MultiPointParetoSearch(
+                    initialState, 
+                    currentInstance,
+                    plsParams['operators']['neiborhoodGeneration'],
+                    [transportMax, infraMax], 
+                    iterationAmount=plsParams['iterations'], 
+                    maxIterationsWithoutImprovement=plsParams['maxIterationsWithoutImprovement'],
+                    movementSize=plsParams['movementSize'], 
+                    tabuTenure=plsParams['tabuListSize'], 
+                    amountToAdd=plsParams['tabuTenure'], 
+                    alpha=plsParams['alpha'],
+                    maxWorkers=plsParams['maxWorkers']
+                )
+                timeEnd = time()
+            else:
+                timeStart = time()
+                finalParetoFront, solverTime, stopped = onePointParetoSearch(
+                    initialState, 
+                    currentInstance, 
+                    [transportMax, infraMax], 
+                    iterationAmount=plsParams['iterations'], 
+                    movementSize=plsParams['movementSize'], 
+                    tabuListSize=plsParams['tabuListSize'], 
+                    tabuTenure=plsParams['tabuTenure'], 
+                    alpha=plsParams['alpha'],
+                    maxWorkers=plsParams['maxWorkers'],
+                    maxIterationsWithoutImprovement=plsParams['maxIterationsWithoutImprovement'])
                 timeEnd = time()
 
-                hvEpsilon = calcularHipervolumen(list(zip(paretoX, paretoY)), transportMin, transportMax, infraMin, infraMax)
-
-                epsilonInfo = {
-                'transMin': transportMin, 
-                'transMax': transportMax,
-                'infraMin': infraMin, 
-                'infraMax': infraMax,
-                'paretoX': paretoX, 
-                'paretoY': paretoY, 
-                'hv': hvEpsilon, 
-                'time': timeEnd - timeStart 
-                }
-
-                saveEpsilonFront("epsilon_results.json", currentUrl, epsilonInfo)
-
-            else:
-                transportMin = epsilonInfo['transMin']
-                transportMax = epsilonInfo['transMax']
-                infraMin = epsilonInfo['infraMin']
-                infraMax = epsilonInfo['infraMax']
-                paretoX = epsilonInfo['paretoX']
-                paretoY = epsilonInfo['paretoY']
-
-
-            # 3. Obtener una solución inicial aleatoria
-            generationMethod = 0 # 0 para aleatoria, 1 para dual-priority list
-            initialState = generateInitialSolution(generationMethod, cdList, clientList)
-            initialPoints, _ = calculateFitnessParallel(cdList, clientList, K, TH, initialState, max_workers=10, alphaValue=alpha, lexPoints=[transportMax, infraMax])
-            print (f"solucion inicial: {initialState}")
-            # 4. Ejecutar la busqueda local
-            experimentRegistry = []
-            iteration = 0
-
-            while iteration < experimentAmount:
-                if alpha == 1:
-                    break
-                if 1==1:
-                    fileName = f"{instancesNames[j]}_SteppestDescent_Sin relajacion"
-                    timeStart = time()
-                    finalParetoFront, solverTime, stopped = MultiPointParetoSearch(initialState, cdList, clientList, K, TH, [transportMax, infraMax], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
-                    timeEnd = time()
-                else:
-                    fileName = f"{instancesNames[j]}_FirstDescent"
-                    timeStart = time()
-                    finalParetoFront, solverTime, stopped = onePointParetoSearch(initialState, cdList, clientList, K, TH, [transportMax, infraMax], iterationAmount, movementSize, int(len(cdList)/2), int(len(cdList)/4), alpha)
-                    timeEnd = time()
-                
-                iteration += 1
-
-                # 5. Calculate Hypervolume for this instance
-                # Convert objects to (x, y) tuples for your HV function
+            # 5. Calculate Hypervolume for this instance
+            # Convert objects to (x, y) tuples for your HV function
+            if getEpsilon:
                 hvPoints = [(p.Transport, p.Infrastructure) for p in finalParetoFront]
                 hvValue = calcularHipervolumen(hvPoints, transportMin, transportMax, infraMin, infraMax)
 
+            if getEpsilon:
                 tplsInfo = {
                 'executionTime': timeEnd - timeStart,
                 'hypervolume': hvValue,
-                'points': finalParetoFront
+                'points': finalParetoFront,
+                'usedStrategy': plsParams['operators']['searchMethod']
+                }
+            else:
+                tplsInfo = {
+                'executionTime': timeEnd - timeStart,
+                'points': finalParetoFront,
+                'usedStrategy': plsParams['operators']['searchMethod']
                 }
 
-                if stopped[0]:
-                    tplsInfo['stopped'] = True
-                    tplsInfo['stoppingIteration'] = stopped[1]
-                    tplsInfo['amountIterations'] = iterationAmount
-                else:
-                    tplsInfo['stopped'] = False
-                    tplsInfo['amountIterations'] = iterationAmount
+            if stopped[0]:
+                tplsInfo['stopped'] = True
+                tplsInfo['stoppingIteration'] = stopped[1]
+                tplsInfo['amountIterations'] = iterationAmount=plsParams['iterations']
+            else:
+                tplsInfo['stopped'] = False
+                tplsInfo['amountIterations'] = iterationAmount=plsParams['iterations']
 
-            exportData(currentUrl, cdList, clientList, epsilonInfo, True, tplsInfo, fileName)
+        exportData(instanceName, currentInstance, numCds, None, getEpsilon, tplsInfo)
 
-            # 6. Plotting y visualización de los resultados
-            if finalParetoFront:
-            # Extract objective values from the paretoPoint instances 
-            # objValueX = Infrastructure Cost, objValueY = Transport Cost
-                infra_costs = [p.Infrastructure for p in finalParetoFront]
-                trans_costs = [p.Transport for p in finalParetoFront]
+        # 6. Plotting y visualización de los resultados
+        if finalParetoFront:
+        # Extract objective values from the paretoPoint instances 
+        # objValueX = Infrastructure Cost, objValueY = Transport Cost
+            infra_costs = [p.Infrastructure for p in finalParetoFront]
+            trans_costs = [p.Transport for p in finalParetoFront]
 
-                # Create the plot
-                plt.figure(figsize=(10, 6))
-                
-                # Plot the lexicographic points for reference
-                # In main.py, change the order to (Infra, Transport)
+            # Create the plot
+            plt.figure(figsize=(10, 6))
+            
+            # Plot the lexicographic points for reference
+            # In main.py, change the order to (Infra, Transport)
+            if getEpsilon:
                 plt.scatter([transportMin, transportMax], [infraMax, infraMin], c=['blue', 'red'])
                 plt.plot(paretoX, paretoY, marker='o', linestyle='-', color='green', label='Epsilon Frontier') 
 
-                # Plot individual points
-                plt.scatter(trans_costs, infra_costs, color='purple', zorder=5, label='Pareto Optimal Points')
+            # Plot individual points
+            plt.scatter(trans_costs, infra_costs, color='purple', zorder=5, label='Pareto Optimal Points')
 
-                # Optional: Draw a line connecting the points to visualize the 'Frontier'
-                # We sort by Infrastructure Cost to ensure the line connects points in order
-                sorted_front = sorted(finalParetoFront, key=lambda p: p.Infrastructure)
-                x_line = [p.Infrastructure for p in sorted_front]
-                y_line = [p.Transport for p in sorted_front]
-                plt.plot(y_line, x_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
+            # Optional: Draw a line connecting the points to visualize the 'Frontier'
+            # We sort by Infrastructure Cost to ensure the line connects points in order
+            sorted_front = sorted(finalParetoFront, key=lambda p: p.Infrastructure)
+            x_line = [p.Infrastructure for p in sorted_front]
+            y_line = [p.Transport for p in sorted_front]
+            plt.plot(y_line, x_line, color='blue', linestyle='--', alpha=0.6, label='Pareto Frontier')
 
-                # Highlight the initial solution
-                initialInfra = [p.Infrastructure for p in initialPoints]
-                initialTrans = [p.Transport for p in initialPoints]
-                plt.scatter(initialTrans, initialInfra, color='orange', marker='X', s=100, label='Initial Solution')
+            # Highlight the initial solution
+            initialInfra = [p.Infrastructure for p in initialPoints]
+            initialTrans = [p.Transport for p in initialPoints]
+            plt.scatter(initialTrans, initialInfra, color='orange', marker='X', s=100, label='Initial Solution')
 
-                # Labels and Titles
-                plt.title(f"Results for {fileName}")
-                plt.xlabel('Transport Cost ($)')
-                plt.ylabel('Infrastructure Cost ($)')
-                plt.grid(True, linestyle=':', alpha=0.7)
-                plt.legend()
+            # Labels and Titles
+            plt.title(f"Results for {instanceName}")
+            plt.xlabel('Transport Cost ($)')
+            plt.ylabel('Infrastructure Cost ($)')
+            plt.grid(True, linestyle=':', alpha=0.7)
+            plt.legend()
 
-                # Save the plot
-                plt.savefig(f"{fileName}_results.png")
-                #plt.show()
-                print(f"Visualisation saved as '{fileName}_results.png'")
-            else:
-                print("No solutions were found to plot.")
-            
-            j+=1
+            # Save the plot
+            plt.savefig(f"{instanceName}_using_{plsParams['operators']['searchMethod']}_results.png")
+            #plt.show()
+            print(f"Visualisation saved as '{instanceName}_using_{plsParams['operators']['searchMethod']}_results.png'")
+        else:
+            print("No solutions were found to plot.")

@@ -1,110 +1,12 @@
 import re
 import ast
+from amplpy import AMPL
 import json
-import random
+import os
 import numpy as np
 import time
 from collections import deque
-from src.model import cd, client
-
-def loadJsonInstance(instance_name, filepath="instancias pequeños valores.json"):
-    with open(filepath, "r") as f:
-        data = json.load(f)
-
-    if instance_name not in data:
-        raise ValueError(f"Instancia '{instance_name}' no encontrada. Opciones: {list(data.keys())}")
-
-    raw_cds = data[instance_name]["cds"]
-    raw_clients = data[instance_name]["clients"]
-
-    cdList = []
-    clientList = []
-
-    # Reconstruir objetos CD
-    for d in raw_cds:
-        new_cd = cd(d["id"], d["capacity"], d["fixedCost"], d["reorderCost"],
-                    d["holdingCost"], d["leadTime"], d["replenishmentCost"])
-        cdList.append(new_cd)
-
-    # Reconstruir objetos Cliente
-    for c in raw_clients:
-        new_cl = client(c["id"], c["demand"], c["variance"])
-        new_cl.transportCost = c["transportCost"] # Asignar la lista de costos
-        clientList.append(new_cl)
-
-    print(f"Instancia '{instance_name}' cargada: {len(cdList)} CDs, {len(clientList)} Clientes.")
-    return cdList, clientList
-
-def loadTextInstance(currentInstance):
-    # Remove comments to avoid parsing issues
-    clean_text = re.sub(r'#.*', '', currentInstance)
-
-    def get_scalar(name):
-        match = re.search(rf'param\s+{name}\s*:=\s*([\d\.]+)\s*;', clean_text, re.IGNORECASE)
-        return float(match.group(1)) if match else 0.0
-
-    def get_map(name):
-        pattern = rf'param\s+{name}(?:\s*\[.*?\])?\s*:=\s*(.*?);'
-        match = re.search(pattern, clean_text, re.DOTALL | re.IGNORECASE)
-        if not match: return {}
-        # Captures pairs of index and value
-        return {int(m[0]): float(m[1]) for m in re.findall(r'(\d+)\s+([\d\.\-]+)', match.group(1))}
-
-    # 1. Extract Dimensions and Scalars
-    K = get_scalar('K')
-    TH = get_scalar('TH')
-    f_map = get_map('f')
-    cap_map = get_map('Cap')
-    rc_map = get_map('RC')
-    oc_map = get_map('OC')
-    hc_map = get_map('HC')
-    lt_map = get_map('LT')
-    d_map = get_map('d')
-    u_map = get_map('u')
-
-    # Calculate counts based on the highest index found in the data
-    num_cds = max(f_map.keys()) + 1 if f_map else 0
-    num_clients = max(d_map.keys()) + 1 if d_map else 0
-
-    # 2. Extract TC Triplets (CD_ID, Client_ID, Cost)
-    # We find the block and look for groups of 3 numbers
-    tc_lookup = {} # Format: {(cd_id, client_id): cost}
-    tc_pattern = r'param\s+TC(?:\s*\[.*?\])?\s*:=\s*(.*?);'
-    tc_match = re.search(tc_pattern, clean_text, re.DOTALL | re.IGNORECASE)
-
-    if tc_match:
-        # Find all numbers and group them into triplets
-        all_nums = re.findall(r'[\d\.\-]+', tc_match.group(1))
-        for i in range(0, len(all_nums), 3):
-            if i + 2 < len(all_nums):
-                cd_idx = int(float(all_nums[i]))
-                cl_idx = int(float(all_nums[i+1]))
-                cost = float(all_nums[i+2])
-                tc_lookup[(cd_idx, cl_idx)] = cost
-
-    # 3. Instantiate CD Objects
-    cds_list = [
-        cd(id=i, capacity=cap_map.get(i, 0.0), fixedCost=f_map.get(i, 0.0),
-           reorderCost=oc_map.get(i, 0.0), holdingCost=hc_map.get(i, 0.0),
-           leadTime=lt_map.get(i, 0.0), replenishmentCost=rc_map.get(i, 0.0))
-        for i in range(num_cds)
-    ]
-
-    # 4. Instantiate Client Objects
-    clients_list = []
-    for j in range(num_clients):
-        cl = client(id=j, demand=d_map.get(j, 0.0), variance=u_map.get(j, 0.0))
-
-        # Populate the array where index i is the cost from CD i
-        # This matches your logic: TC[10, 2, 5] means cost from CD 0 is 10, CD 1 is 2...
-        tc_array = []
-        for i in range(num_cds):
-            tc_array.append(tc_lookup.get((i, j), 0.0))
-
-        cl.transportCost = tc_array
-        clients_list.append(cl)
-
-    return cds_list, clients_list, K, TH
+from src.model import cd, client, modelo
 
 def printSummary(cds, clients, K, TH):
     print("\n" + "="*55)
@@ -129,7 +31,7 @@ def printSummary(cds, clients, K, TH):
             print("  - WARNING: TC values are still 0.0. Triplets not found.")
     print("="*55 + "\n")
 
-def getStateTuple(cdList, clientList=None):
+def getStateTuple(cdList):
     aux = list(c.open for c in cdList)
     for i in range(len(aux)):
         if aux[i] == True:
@@ -138,13 +40,31 @@ def getStateTuple(cdList, clientList=None):
             aux[i] = 0
     return tuple(aux)
     
-def getTotalDemand(clientList):
+def getTotalDemand(instanceContent):
+    tempAmpl = AMPL()
+    tempAmpl.eval("reset;")
+    tempAmpl.eval(modelo)
+    tempAmpl.eval(instanceContent)
+
+    demand = tempAmpl.getParameter("d").getValues().toDict()
+    variance = tempAmpl.getParameter("u").getValues().toDict()
+
+    tempAmpl.close()
+
     totalDemand = 0
     totalVariance = 0
-    for client in clientList:
-        totalDemand += client.demand
-        totalVariance += client.variance
+    for i in range(len(demand)):
+        totalDemand += demand[i]
+        totalVariance += variance[i]
     return totalDemand + totalVariance
+
+def parseNumCds(ampl_data):
+    match = re.search(r'set\s+I\s*:=\s*(.*?);', ampl_data, re.DOTALL | re.IGNORECASE)
+    if match:
+        content = match.group(1)
+        cdList_ids = content.split()
+        return len(cdList_ids)
+    return 0
 
 def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
     if len(puntos) == 0:
@@ -185,12 +105,24 @@ def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
 
     return hipervolumen
 
-def characterizeInstance(cdList, clientList):
+def characterizeInstance(instanceContent):
     """Calculates statistics for the instance to match the report format."""
-    fCosts = [c.fixedCost for c in cdList]
-    caps = [c.capacity for c in cdList]
-    demands = [cl.demand for cl in clientList]
-    allTc = [cost for cl in clientList for cost in cl.transportCost]
+    tempAmpl = AMPL()
+    tempAmpl.eval("reset;")
+    tempAmpl.eval(modelo)
+    tempAmpl.eval(instanceContent)
+
+    fixedCosts = tempAmpl.getParameter("F").getValues().toDict()
+    capacities = tempAmpl.getParameter("Cap").getValues().toDict()
+    demand = tempAmpl.getParameter("d").getValues().toDict()
+    transportCosts = tempAmpl.getParameter("TC").getValues().toDict()
+
+    tempAmpl.close()
+
+    fCosts = [f for f in fixedCosts.values()]
+    caps = [c for c in capacities.values()]
+    demands = [d for d in demand.values()]
+    allTc = [tc for tc in transportCosts.values()]
 
     def getStats(name, values):
         meanVal = np.mean(values)
@@ -219,16 +151,16 @@ def characterizeInstance(cdList, clientList):
     ]
     return "\n".join(report)
 
-def exportData(instanceUrl, cdList, clientList, epsilonData, gottenEpsilon, tplsData, instanceName):
+def exportData(instanceName, instance, amountOfCDs, epsilonData, gottenEpsilon, tplsData):
     """Generates a text report identical to the provided examples."""
     report = [
         "==================================================",
         "         REPORTE DE EJECUCIÓN MULTIOBJETIVO       ",
         "==================================================", 
-        f"URL Instancia Evaluada: {instanceUrl}",
-        f"Tamaño de Instancia: {len(cdList)} CDs\n",
+        f"URL Instancia Evaluada: {instanceName}",
+        f"Tamaño de Instancia: {amountOfCDs} CDs\n",
         "CARACTERIZACIÓN DE LA INSTANCIA",
-        characterizeInstance(cdList, clientList),
+        characterizeInstance(instance),
     ]
 
     if gottenEpsilon:
@@ -268,7 +200,7 @@ def exportData(instanceUrl, cdList, clientList, epsilonData, gottenEpsilon, tpls
                 aceleracion = epsilonData['time'] / tplsData['executionTime'] 
                 report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
 
-    fileName = f"Reporte_{instanceName}_{int(time.time())}.txt" 
+    fileName = f"Reporte_{instanceName}_using_{tplsData['usedStrategy']}.txt" 
     with open(fileName, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
     print(f"*** Reporte guardado en {fileName} ***") 
@@ -316,3 +248,28 @@ def readLexicographicData(filePath):
     except Exception as e:
         print(f"Error al procesar el archivo: {e}")
         return None
+
+def loadDatInstance(name):
+
+    if not name.endswith(".dat"):
+        fileName = f"{name}.dat"
+    else:
+        fileName = name
+        
+    folderName = "instances"
+    filePath = os.path.join(folderName, fileName)
+    
+    try:
+        with open(filePath, 'r', encoding='utf-8') as fileObject:
+            fileContent = fileObject.read()
+        return fileContent
+    except FileNotFoundError:
+        print(f"Error: El archivo '{fileName}' no se encontró en la carpeta '{folderName}'.")
+        return None
+    except Exception as errorObject:
+        print(f"Error inesperado al leer la instancia: {errorObject}")
+        return None
+
+def loadConfig(configPath):
+    with open(configPath, 'r', encoding='utf-8') as file:
+        return json.load(file)

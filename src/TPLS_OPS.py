@@ -258,7 +258,7 @@ def onePointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, ite
     foundPoints.extend(nonDominatedPoints)
 
     i = 0
-    #iterationwithoutImprovement = 0
+    iterationwithoutImprovement = 0
 
     tabu = createTabuList(cdList)
     addedTabus = []
@@ -294,28 +294,30 @@ def onePointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, ite
         paretoPoints, time  = calculateFitnessParallel(cdList, clientList, K, TH, notFound, alphaValue=alphaValue, lexPoints=lexPoints)
             
         solverTime += time
-
-        try:
-            if len(validTabuPoints) > 0:
-                paretoPoints.extend(validTabuPoints)
-        except Exception as e:
-            pass
-
-        if len(alreadyFound) > 0:
-            paretoPoints.extend(alreadyFound)
-
-        # 5. Actualizar el frente de Pareto con la funcion de dominancia
+        
+        # Capture the states of the front BEFORE adding already known points
         previousFrontStates = set(p.state for p in nonDominatedPoints)
-        
-        print(f"Iteracion: {i}, Cantidad de puntos en el frente de pareto: {len(nonDominatedPoints)}. ANTES DE DESCARTE")    
-        
-        nonDominatedPoints, tabuRate = checkDominance(paretoPoints, nonDominatedPoints, neighborMovements)
 
-        # 5.1 Criterio de parada por falta de mejora
+        # Only consider points that were NOT previously found in this specific search
+        newlyEvaluatedPoints = []
+        newlyEvaluatedPoints.extend(paretoPoints) # These come from 'notFound'
+        if len(validTabuPoints) > 0:
+            newlyEvaluatedPoints.extend(validTabuPoints)
+
+        # Now update the front using EVERYTHING (new + old) to maintain correctness
+        allPotentialPoints = newlyEvaluatedPoints + alreadyFound
+
+        allPotentialPoints = removeDuplicatePoints(allPotentialPoints)
+
+        nonDominatedPoints, tabuRate = checkDominance(allPotentialPoints, nonDominatedPoints, neighborMovements)
+
+        nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
+
+        # Check if any of the NEWLY evaluated points made it into the front
         currentFrontStates = set(p.state for p in nonDominatedPoints)
-        foundNewPoint = not currentFrontStates.issubset(previousFrontStates) 
-
-        print(f"Iteracion: {i}, Cantidad de puntos en el frente de pareto: {len(nonDominatedPoints)}. DESPUES DE DESCARTE")  
+        # An improvement only counts if a NEW state was added that isn't in the "history"
+        actualImprovement = any(p.state in currentFrontStates for p in newlyEvaluatedPoints)
+        frontChanged = not currentFrontStates.issubset(previousFrontStates)
 
         noPointToExplore = True
         for point in nonDominatedPoints:
@@ -329,19 +331,19 @@ def onePointParetoSearch(initialState, cdList, clientList, K, TH, lexPoints, ite
             nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
             break
 
-        #if foundNewPoint:
-        #    iterationwithoutImprovement = 0
-        #elif iterationwithoutImprovement >= 5:
-        #    print("No se han encontrado nuevos puntos no dominados en las últimas 5 iteraciones, terminando búsqueda.")
-        #    stopped = [True, i]
-        #    nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
-        #    break
-        #else:
-        #    iterationwithoutImprovement += 1
-        #    i += 1
-        #    continue
-        
-        nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
+        if actualImprovement and frontChanged:
+            iterationwithoutImprovement = 0
+            print(f"Iteración {i+1}/{iterationLimit} - Nuevo punto no dominado encontrado! Total en el frente: {len(nonDominatedPoints)}")
+        elif iterationwithoutImprovement >= 5:
+            print("No se han encontrado nuevos puntos no dominados en las últimas 5 iteraciones, terminando búsqueda.")
+            stopped = [True, i]
+            nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
+            break
+        else:
+            iterationwithoutImprovement += 1
+            i += 1
+            print(f"Iteración {i}/{iterationLimit} - No se encontraron nuevos puntos no dominados. Iteraciones sin mejora: {iterationwithoutImprovement}")
+            continue
         
         # 6. Añadir tabu de los movimientos más frecuentes en los nuevos puntos no dominados encontrados
         sortedTabuRate = sorted(tabuRate.items(), key=lambda x: x[1], reverse=True)

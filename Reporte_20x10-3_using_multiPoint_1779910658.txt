@@ -1,0 +1,48 @@
+==================================================
+         REPORTE DE EJECUCIÓN MULTIOBJETIVO       
+==================================================
+URL Instancia Evaluada: 20x10-3
+Tamaño de Instancia: 10 CDs
+
+CARACTERIZACIÓN DE LA INSTANCIA
+--- Análisis de la Instancia ---
+Costos Fijos (F):
+  - Promedio: 19802.70
+  - Desv. Estándar: 4128.47
+  - Coef. Variación (CV): 20.85%
+Capacidades (Cap):
+  - Promedio: 1009.30
+  - Desv. Estándar: 206.62
+  - Coef. Variación (CV): 20.47%
+Demandas (d):
+  - Promedio: 101.60
+  - Desv. Estándar: 30.72
+  - Coef. Variación (CV): 30.23%
+Costos de Transporte (TC):
+  - Promedio: 78.55
+  - Desv. Estándar: 33.69
+  - Coef. Variación (CV): 42.89%
+
+Análisis de Tensión:
+  - Demanda Total de la Red: 2032.00
+  - Capacidad Total de CDs : 10093.00
+  - Ratio (Cap/Dem)        : 4.97x (Holgada)
+--------------------------------
+
+RESULTADOS HEURÍSTICA (TPLS)
+** El TPLS se detuvo prematuramente en la iteración 14 de 50 debido a falta de mejora. **
+Tiempo de ejecución : 496.1217 segundos
+
+Frente de Pareto Final - 12 puntos:
+  Punto 1: Transp=1201131000.00, Infra=2218466.27 | State: (0, 0, 0, 0, 0, 1, 1, 0, 0, 0)
+  Punto 2: Transp=1131528000.00, Infra=2891265.40 | State: (0, 0, 1, 1, 0, 1, 1, 0, 0, 0)
+  Punto 3: Transp=1132826000.00, Infra=2691289.30 | State: (0, 0, 1, 1, 0, 1, 0, 0, 0, 0)
+  Punto 4: Transp=1146043000.00, Infra=2588210.75 | State: (0, 0, 0, 1, 0, 1, 0, 0, 1, 0)
+  Punto 5: Transp=1270810000.00, Infra=2115583.45 | State: (0, 1, 0, 0, 0, 0, 0, 0, 0, 1)
+  Punto 6: Transp=1253585000.00, Infra=2164213.59 | State: (0, 0, 0, 0, 0, 0, 1, 0, 1, 0)
+  Punto 7: Transp=1186649000.00, Infra=2245020.39 | State: (0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+  Punto 8: Transp=1170508000.00, Infra=2253403.55 | State: (0, 0, 1, 0, 0, 1, 0, 0, 0, 0)
+  Punto 9: Transp=1243403000.00, Infra=2166438.49 | State: (0, 0, 0, 0, 0, 1, 1, 0, 0, 0)
+  Punto 10: Transp=1148633000.00, Infra=2273609.94 | State: (0, 0, 0, 1, 0, 1, 0, 0, 0, 0)
+  Punto 11: Transp=1165827000.00, Infra=2254121.60 | State: (0, 0, 1, 0, 0, 1, 0, 0, 0, 0)
+  Punto 12: Transp=1128383000.00, Infra=2901847.30 | State: (0, 0, 1, 1, 0, 1, 0, 0, 1, 0)
