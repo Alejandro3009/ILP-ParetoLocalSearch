@@ -112,70 +112,12 @@ if __name__ == "__main__":
         # 2. Obtener los puntos lexicográficos extremos para cada objetivo
         previousResults = loadEpsilonResults(f"fronts/{instanceName}.json", instanceName)
 
-        if previousResults is None and getEpsilon:
-            timeStart = time()
-            transportMin, aux = solveInstance(currentInstance, mTransport)
-            aux, infraMax = solveInstance(currentInstance, mInfrastructure, transportMin)
-            
-            aux, infraMin = solveInstance(currentInstance, mInfrastructure)
-            transportMax, aux = solveInstance(currentInstance, mTransport, infraMin)
-
-            print(f"Punto X lexicográfico de infraestructura e inventario {transportMax}")
-            print(f"Punto Y lexicográfico de infraestructura e inventario {infraMin}")
-            print(f"Punto X lexicográfico de transporte: {transportMin}")
-            print(f"Punto Y lexicográfico de transporte: {infraMax}")
-
-            steps = 10
-            epsilonSteps = np.linspace(infraMin, infraMax, steps)
-
-            paretoX = []
-            paretoY = []
-            rawEpsilonPoints = []
-
-            for step in epsilonSteps:
-                transportCost, infraCost = solveEpsilon(currentInstance, mTransport, step)
-                if transportCost is not None:
-                    rawEpsilonPoints.append((transportCost, infraCost))
-
-            epsilonSteps = np.linspace(transportMin, transportMax, steps)
-
-            for step in epsilonSteps:
-                transportCost, infraCost = solveEpsilon(currentInstance, mInfrastructure, step)
-                if infraCost is not None:
-                    rawEpsilonPoints.append((transportCost, infraCost))
-            
-            # Filtrar puntos dominados del frente epsilon
-            finalEpsilonFront = filterEpsilonFront(rawEpsilonPoints)
-            paretoX = [p[0] for p in finalEpsilonFront]
-            paretoY = [p[1] for p in finalEpsilonFront]
-
-            timeEnd = time()
-
-            hvEpsilon = calcularHipervolumen(list(zip(paretoX, paretoY)), transportMin, transportMax, infraMin, infraMax)
-
-            epsilonInfo = {
-            'transMin': transportMin, 
-            'transMax': transportMax,
-            'infraMin': infraMin, 
-            'infraMax': infraMax,
-            'paretoX': paretoX, 
-            'paretoY': paretoY, 
-            'hv': hvEpsilon, 
-            'time': timeEnd - timeStart 
-            }
-
-            saveEpsilonFront(f"fronts/{instanceName}.json", instanceName, epsilonInfo)
-        elif not getEpsilon:
-            print("se decidio no resolver el epsilon para esta instancia")
-            transportMax = 1 
-            infraMax = 1
-        else:
-            transportMin = previousResults['transMin']
-            transportMax = previousResults['transMax']
-            infraMin = previousResults['infraMin']
-            infraMax = previousResults['infraMax']
-            paretoX = previousResults['paretoX']
-            paretoY = previousResults['paretoY']
+        transportMin = previousResults['transMin']
+        transportMax = previousResults['transMax']
+        infraMin = previousResults['infraMin']
+        infraMax = previousResults['infraMax']
+        paretoX = previousResults['paretoX']
+        paretoY = previousResults['paretoY']
 
         # 3. Obtener una solución inicial aleatoria
         initialState = generateInitialSolution(plsParams['operators']["initialization"], currentInstance)
@@ -210,7 +152,8 @@ if __name__ == "__main__":
                 timeStart = time()
                 finalParetoFront, solverTime, stopped = onePointParetoSearch(
                     initialState, 
-                    currentInstance, 
+                    currentInstance,
+                    plsParams['operators']['neiborhoodGeneration']
                     [transportMax, infraMax], 
                     iterationAmount=plsParams['iterations'], 
                     movementSize=plsParams['movementSize'], 

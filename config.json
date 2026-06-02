@@ -16,7 +16,7 @@
     "relaxedGeneration": true,
     "operators": {
       "initialization": "random",
-      "searchMethod": "multiPoint",
+      "searchMethod": "onePoint",
       "neiborhoodGeneration": [
         {"method": "random", "prob": 0.7},
         {"method": "relaxed", "prob": 0.3}
@@ -24,7 +24,9 @@
     }
   },
   "instances": [
+    "20x10-0",
+    "20x10-1",
     "20x10-3",
-    "30x15-1"
+    "20x10-5"
   ]
 }

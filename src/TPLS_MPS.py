@@ -6,14 +6,6 @@ from src.solver import calculateFitnessParallel, parallelLinearRelaxation
 from src.model import modelo, movements
 from src.utils import getTotalDemand
 
-def createTabuRate(pointsList):
-    tabuRate = {}
-    for i in range(len(pointsList[0].state)):
-        tabuRate[f"{i}opened"] = 0
-        tabuRate[f"{i}closed"] = 0
-        
-    return tabuRate
-
 def createTabuList(instanceContent):
     tempAmpl = AMPL()
     tempAmpl.eval("reset;")
@@ -304,7 +296,7 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         neighborhood = removeDuplicateStates(neighborhood)
 
-        if len(tabuNeighborhood) == 0:
+        if len(tabuNeighborhood) > 0:
             tabuNeighborhood = removeDuplicateStates(tabuNeighborhood)
 
         print (f"Iteración {i+1}/{iterationAmount} - Vecinos generados: {len(neighborhood)} - Vecinos tabu: {len(tabuNeighborhood)}")
