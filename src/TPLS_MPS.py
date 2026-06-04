@@ -21,6 +21,12 @@ def createTabuList(instanceContent):
         tabuList[cd] = None
     return tabuList
 
+def createTabuRate(cds):
+    tabuList = {}
+    for cd in cds:
+        tabuList[cd.id] = None
+    return tabuList
+
 def addTabu(moves, tabuList, addedTabus):
     moveCds = moves.keys()
 

@@ -1,7 +1,8 @@
 import random
 import copy
+from amplpy import AMPL
 from src.solver import calculateFitnessParallel, parallelLinearRelaxation
-from src.model import movements
+from src.model import movements, modelo
 from src.utils import getTotalDemand
 
 def createTabuList(instanceContent):
@@ -19,7 +20,7 @@ def createTabuList(instanceContent):
         tabuList[cd] = None
     return tabuList
 
-def createTabuList(cds):
+def createTabuRate(cds):
     tabuList = {}
     for cd in cds:
         tabuList[cd.id] = None
@@ -116,7 +117,7 @@ def hybridNeighborGeneration(nonDominatedPoints, instance, fixingSize, maxWorker
 
 def relaxNeighbor(instance, point, fixingSize, maxWorkers, alphaValue, lexPoints, tabu):
     neighborStates = []
-    pointState = tuple(point.state)
+    neighborMovements = []
     i = 0
 
     while i < 10:
@@ -132,7 +133,7 @@ def relaxNeighbor(instance, point, fixingSize, maxWorkers, alphaValue, lexPoints
         
         i += 1
     
-    return neighborStates, solverTime
+    return neighborStates, neighborMovements, []
 
 def getNeighbor(point, tabu, movementSize):
     neighborhood = []
@@ -278,7 +279,7 @@ def onePointParetoSearch(initialState, instance, movementOperator, lexPoints, it
     i = 0
     iterationwithoutImprovement = 0
 
-    tabu = createTabuList(cdList)
+    tabu = createTabuList(instance)
     addedTabus = []
 
     solverTime = 0
@@ -303,7 +304,7 @@ def onePointParetoSearch(initialState, instance, movementOperator, lexPoints, it
 
         # 3. Evaluar vecinos marcados como tabu con criterio de aspiración
         if len(tabuNeighborhood) > 0:
-            validTabuPoints, time = AspirationCriteria(tabuNeighborhood, nonDominatedPoints, foundPoints, cdList, clientList, K, TH, alphaValue, lexPoints)
+            validTabuPoints, time = AspirationCriteria(instance, tabuNeighborhood, nonDominatedPoints, foundPoints, alphaValue=alpha, lexPoints=lexPoints, maxWorkers=maxWorkers)
             solverTime += time
 
         notFound, alreadyFound = checkIfFound(neighborhood, foundPoints)
