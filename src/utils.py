@@ -4,8 +4,7 @@ from amplpy import AMPL
 import json
 import os
 import numpy as np
-import time
-from collections import deque
+import math
 from src.model import cd, client, modelo
 
 def printSummary(cds, clients, K, TH):
@@ -273,3 +272,73 @@ def loadDatInstance(name):
 def loadConfig(configPath):
     with open(configPath, 'r', encoding='utf-8') as file:
         return json.load(file)
+    
+def invertedGenerationalDistance(epsilonPoints, heuristicPoints, infraLex, transLex):
+    if not epsilonPoints or not heuristicPoints:
+        return float('inf')
+
+    # Ranges for normalization
+    range_inf = (infraLex[1] - infraLex[0]) if infraLex[1] > infraLex[0] else 1.0
+    range_tra = (transLex[1] - transLex[0]) if transLex[1] > transLex[0] else 1.0
+
+    # 1. Normalize True Front Points
+    norm_true = [
+        ((t[0] - infraLex[0]) / range_inf, (t[1] - transLex[0]) / range_tra)
+        for t in epsilonPoints
+    ]
+
+    # 2. Normalize Heuristic Points
+    norm_heuristic = [
+        ((h.Infrastructure - infraLex[0]) / range_inf, (h.Transport - transLex[0]) / range_tra)
+        for h in heuristicPoints
+    ]
+
+    # 3. For each point in the TRUE front, find the Euclidean distance to the NEAREST heuristic point
+    total_min_dist_sum = 0.0
+    for t_point in norm_true:
+        min_dist = float('inf')
+        for h_point in norm_heuristic:
+            # Euclidean distance (L2 norm)
+            dist = math.sqrt((t_point[0] - h_point[0])**2 + (t_point[1] - h_point[1])**2)
+            if dist < min_dist:
+                min_dist = dist
+        total_min_dist_sum += min_dist
+
+    # 4. Return the average
+    return total_min_dist_sum / len(norm_true)
+
+def spacing(points):
+    # 1. Extract objectives
+    infra_vals = [p.Infrastructure for p in points]
+    trans_vals = [p.Transport for p in points]
+
+    # 2. Normalize objectives to [0, 1] to avoid scale distortion
+    min_inf, max_inf = min(infra_vals), max(infra_vals)
+    min_tra, max_tra = min(trans_vals), max(trans_vals)
+    
+    range_inf = (max_inf - min_inf) if max_inf > min_inf else 1.0
+    range_tra = (max_tra - min_tra) if max_tra > min_tra else 1.0
+
+    norm_points = [
+        ((p.Infrastructure - min_inf) / range_inf, (p.Transport - min_tra) / range_tra)
+        for p in points
+    ]
+
+    # 3. Find the minimum distance (d_i) from each point to its closest neighbor
+    d_i_list = []
+    for i, p1 in enumerate(norm_points):
+        min_dist = float('inf')
+        for j, p2 in enumerate(norm_points):
+            if i == j:
+                continue
+            # Manhattan distance (L1 norm) is traditionally used for Spacing
+            dist = abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
+            if dist < min_dist:
+                min_dist = dist
+        d_i_list.append(min_dist)
+
+    # 4. Calculate the standard deviation of these distances
+    mean_d = np.mean(d_i_list)
+    spacing = math.sqrt(sum((d_i - mean_d) ** 2 for d_i in d_i_list) / (len(d_i_list) - 1))
+    
+    return spacing

@@ -10,7 +10,7 @@ from time import time
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.initialSolution import generateInitialSolution
-from src.utils import loadDatInstance, printSummary, calcularHipervolumen, exportData, loadConfig, parseNumCds
+from src.utils import loadDatInstance, calcularHipervolumen, invertedGenerationalDistance, spacing,exportData, loadConfig, parseNumCds
 from src.solver import calculateFitnessParallel
 from src.TPLS_MPS import MultiPointParetoSearch
 from src.TPLS_OPS import onePointParetoSearch
@@ -167,8 +167,9 @@ if __name__ == "__main__":
             # 5. Calculate Hypervolume for this instance
             # Convert objects to (x, y) tuples for your HV function
             if getEpsilon:
-                hvPoints = [(p.Transport, p.Infrastructure) for p in finalParetoFront]
-                hvValue = calcularHipervolumen(hvPoints, transportMin, transportMax, infraMin, infraMax)
+                points = [(p.Transport, p.Infrastructure) for p in finalParetoFront]
+                hvValue = calcularHipervolumen(points, transportMin, transportMax, infraMin, infraMax)
+                igdValue = invertedGenerationalDistance(, finalParetoFront, [infraMin, infraMax], [transportMin, transportMax])
 
             if getEpsilon:
                 tplsInfo = {
