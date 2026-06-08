@@ -22,10 +22,12 @@ def createTabuList(instanceContent):
     return tabuList
 
 def createTabuRate(cds):
-    tabuList = {}
-    for cd in cds:
-        tabuList[cd.id] = None
-    return tabuList
+    tabuRate = {}
+    for i in range(len(cds[0].state)):
+        tabuRate[f"{i}opened"] = 0
+        tabuRate[f"{i}closed"] = 0
+    
+    return tabuRate
 
 def addTabu(moves, tabuList, addedTabus):
     moveCds = moves.keys()
@@ -273,7 +275,7 @@ def removeDuplicatePoints(pointsList):
 
     return list(uniquePoints.values())
 
-def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, iterationAmount = 50, maxIterationsWithoutImprovement=5, movementSize = 3, tabuTenure = 20, amountToAdd = 5, alpha = 0.5, maxWorkers = 10):
+def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, iterationAmount = 50, maxIterationsWithoutImprovement=5, movementSize = 3, tabuListSize = 20, tabuTenure = 5, alpha = 0.5, maxWorkers = 10):
     # 1. Inicialización y obtencion de parametros
     nonDominatedPoints = []
     aux, solverTime = calculateFitnessParallel(instance, initialState, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
@@ -366,7 +368,7 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
         
         tabuMovesToAdd = {}
 
-        for j in range(amountToAdd):
+        for j in range(tabuTenure):
             move = sortedTabuRate[j]
             moveKey = int(move[0][0])
             moveValue = move[1]
@@ -374,8 +376,8 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         tabu, addedTabus = addTabu(tabuMovesToAdd, tabu, addedTabus)
 
-        if len(addedTabus) > tabuTenure:
-            tabu, addedTabus = removeLastTabu(amountToAdd, tabu, addedTabus)
+        if len(addedTabus) > tabuListSize:
+            tabu, addedTabus = removeLastTabu(tabuTenure, tabu, addedTabus)
         
         foundPoints.extend(paretoPoints)
 

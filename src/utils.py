@@ -66,6 +66,8 @@ def parseNumCds(ampl_data):
     return 0
 
 def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
+    pointValues = [(p.Transport, p.Infrastructure) for p in puntos]
+
     if len(puntos) == 0:
         return 0.0
 
@@ -73,7 +75,7 @@ def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
     rangoY = maxY - minY if maxY > minY else 1.0
 
     puntos_norm = []
-    for p in puntos:
+    for p in pointValues:
         nx = (p[0] - minX) / rangoX
         ny = (p[1] - minY) / rangoY
         puntos_norm.append((nx, ny))
@@ -185,6 +187,8 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, gottenEpsilon, 
     report.append(f"Tiempo de ejecución : {tplsData['executionTime']:.4f} segundos")
     if gottenEpsilon:
         report.append(f"Hipervolumen        : {tplsData['hypervolume']:.4f}")
+        report.append(f"Distancia Generacional Invertida: {tplsData['invertedGenerationalDistance']:.4f}")
+        report.append(f"Espaciado             : {tplsData['spacing']:.4f}")
     report.append(f"\nFrente de Pareto Final - {len(tplsData['points'])} puntos:")
     
     for i, p in enumerate(tplsData['points']):
@@ -273,8 +277,8 @@ def loadConfig(configPath):
     with open(configPath, 'r', encoding='utf-8') as file:
         return json.load(file)
     
-def invertedGenerationalDistance(epsilonPoints, heuristicPoints, infraLex, transLex):
-    if not epsilonPoints or not heuristicPoints:
+def invertedGenerationalDistance(epsilonX, epsilonY, heuristicPoints, infraLex, transLex):
+    if not epsilonX or not epsilonY or not heuristicPoints:
         return float('inf')
 
     # Ranges for normalization
@@ -283,8 +287,8 @@ def invertedGenerationalDistance(epsilonPoints, heuristicPoints, infraLex, trans
 
     # 1. Normalize True Front Points
     norm_true = [
-        ((t[0] - infraLex[0]) / range_inf, (t[1] - transLex[0]) / range_tra)
-        for t in epsilonPoints
+        ((epsilonX[i] - infraLex[0]) / range_inf, (epsilonY[i] - transLex[0]) / range_tra)
+        for i in range(len(epsilonX))
     ]
 
     # 2. Normalize Heuristic Points

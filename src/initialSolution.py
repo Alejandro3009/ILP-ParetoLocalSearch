@@ -15,7 +15,7 @@ def generateInitialSolution(selectedStrategy, currentInstance):
         case "random":
             return randomSolution(currentInstance, amount=5)
         case _:
-            raise ValueError("Invalid selection strategy")
+            raise ValueError("Estrategia de generación de solución inicial no reconocida.")
         
 # random solution
 

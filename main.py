@@ -98,7 +98,7 @@ if __name__ == "__main__":
     license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
     dataUrl = ""
 
-    getEpsilon = False
+    getEpsilon = True
 
     for instanceName in instancesList: 
         # 1. Cargar las intancias (ya sea desde el json o de las urls)
@@ -112,16 +112,9 @@ if __name__ == "__main__":
         # 2. Obtener los puntos lexicográficos extremos para cada objetivo
         previousResults = loadEpsilonResults(f"fronts/{instanceName}.json", instanceName)
 
-        transportMin = previousResults['transMin']
-        transportMax = previousResults['transMax']
-        infraMin = previousResults['infraMin']
-        infraMax = previousResults['infraMax']
-        paretoX = previousResults['paretoX']
-        paretoY = previousResults['paretoY']
-
         # 3. Obtener una solución inicial aleatoria
         initialState = generateInitialSolution(plsParams['operators']["initialization"], currentInstance)
-        initialPoints, _ = calculateFitnessParallel(currentInstance, initialState, max_workers=plsParams['maxWorkers'], alphaValue=plsParams['alpha'], lexPoints=[transportMax, infraMax])
+        initialPoints, _ = calculateFitnessParallel(currentInstance, initialState, max_workers=plsParams['maxWorkers'], alphaValue=plsParams['alpha'], lexPoints=[previousResults['transMax'], previousResults['infraMax']])
         print (f"solucion inicial: {initialState}")
         # 4. Ejecutar la busqueda local
         experimentRegistry = []
@@ -132,49 +125,55 @@ if __name__ == "__main__":
             
             timeZero = time()
 
-            if plsParams['operators']['searchMethod'] == "multiPoint":
-                timeStart = time()
-                finalParetoFront, solverTime, stopped = MultiPointParetoSearch(
-                    initialState, 
-                    currentInstance,
-                    plsParams['operators']['neiborhoodGeneration'],
-                    [transportMax, infraMax], 
-                    iterationAmount=plsParams['iterations'], 
-                    maxIterationsWithoutImprovement=plsParams['maxIterationsWithoutImprovement'],
-                    movementSize=plsParams['movementSize'], 
-                    tabuTenure=plsParams['tabuListSize'], 
-                    amountToAdd=plsParams['tabuTenure'], 
-                    alpha=plsParams['alpha'],
-                    maxWorkers=plsParams['maxWorkers']
-                )
-                timeEnd = time()
-            else:
-                timeStart = time()
-                finalParetoFront, solverTime, stopped = onePointParetoSearch(
-                    initialState, 
-                    currentInstance,
-                    plsParams['operators']['neiborhoodGeneration']
-                    [transportMax, infraMax], 
-                    iterationAmount=plsParams['iterations'], 
-                    movementSize=plsParams['movementSize'], 
-                    tabuListSize=plsParams['tabuListSize'], 
-                    tabuTenure=plsParams['tabuTenure'], 
-                    alpha=plsParams['alpha'],
-                    maxWorkers=plsParams['maxWorkers'],
-                    maxIterationsWithoutImprovement=plsParams['maxIterationsWithoutImprovement'])
-                timeEnd = time()
+            match plsParams['operators']['searchMethod']:
+
+                case "steepestDescent":
+                    timeStart = time()
+                    finalParetoFront, solverTime, stopped = MultiPointParetoSearch(
+                        initialState, 
+                        currentInstance,
+                        plsParams['operators']['neiborhoodGeneration'],
+                        [previousResults['transMax'], previousResults['infraMax']], 
+                        iterationAmount=plsParams['iterations'], 
+                        maxIterationsWithoutImprovement=plsParams['maxIterationsWithoutImprovement'],
+                        movementSize=plsParams['movementSize'], 
+                        tabuListSize=plsParams['tabuListSize'], 
+                        tabuTenure=plsParams['tabuTenure'], 
+                        alpha=plsParams['alpha'],
+                        maxWorkers=plsParams['maxWorkers']
+                    )
+                    timeEnd = time()
+                case "firstDescent":
+                    timeStart = time()
+                    finalParetoFront, solverTime, stopped = onePointParetoSearch(
+                        initialState, 
+                        currentInstance,
+                        plsParams['operators']['neiborhoodGeneration'],
+                        [previousResults['transMax'], previousResults['infraMax']], 
+                        iterationAmount=plsParams['iterations'], 
+                        movementSize=plsParams['movementSize'], 
+                        tabuListSize=plsParams['tabuListSize'], 
+                        tabuTenure=plsParams['tabuTenure'], 
+                        alpha=plsParams['alpha'],
+                        maxWorkers=plsParams['maxWorkers'],
+                        maxIterationsWithoutImprovement=plsParams['maxIterationsWithoutImprovement'])
+                    timeEnd = time()
+                case _:
+                    print(f"Método de búsqueda '{plsParams['operators']['searchMethod']}' no reconocido.")
 
             # 5. Calculate Hypervolume for this instance
             # Convert objects to (x, y) tuples for your HV function
             if getEpsilon:
-                points = [(p.Transport, p.Infrastructure) for p in finalParetoFront]
-                hvValue = calcularHipervolumen(points, transportMin, transportMax, infraMin, infraMax)
-                igdValue = invertedGenerationalDistance(, finalParetoFront, [infraMin, infraMax], [transportMin, transportMax])
+                hvValue = calcularHipervolumen(finalParetoFront, previousResults['transMin'], previousResults['transMax'], previousResults['infraMin'], previousResults['infraMax'])
+                igdValue = invertedGenerationalDistance(previousResults['paretoX'], previousResults['paretoY'], finalParetoFront, [previousResults['infraMin'], previousResults['infraMax']], [previousResults['transMin'], previousResults['transMax']])
+                spacingValue = spacing(finalParetoFront)
 
             if getEpsilon:
                 tplsInfo = {
                 'executionTime': timeEnd - timeStart,
                 'hypervolume': hvValue,
+                'invertedGenerationalDistance': igdValue,
+                'spacing': spacingValue,
                 'points': finalParetoFront,
                 'usedStrategy': plsParams['operators']['searchMethod']
                 }
@@ -193,7 +192,7 @@ if __name__ == "__main__":
                 tplsInfo['stopped'] = False
                 tplsInfo['amountIterations'] = iterationAmount=plsParams['iterations']
 
-        exportData(instanceName, currentInstance, numCds, None, getEpsilon, tplsInfo)
+        exportData(instanceName, currentInstance, numCds, previousResults, getEpsilon, tplsInfo)
 
         # 6. Plotting y visualización de los resultados
         if finalParetoFront:
@@ -208,8 +207,8 @@ if __name__ == "__main__":
             # Plot the lexicographic points for reference
             # In main.py, change the order to (Infra, Transport)
             if getEpsilon:
-                plt.scatter([transportMin, transportMax], [infraMax, infraMin], c=['blue', 'red'])
-                plt.plot(paretoX, paretoY, marker='o', linestyle='-', color='green', label='Epsilon Frontier') 
+                plt.scatter([previousResults['transMin'], previousResults['transMax']], [previousResults['infraMax'], previousResults['infraMin']], c=['blue', 'red'])
+                plt.plot(previousResults['paretoX'], previousResults['paretoY'], marker='o', linestyle='-', color='green', label='Epsilon Frontier') 
 
             # Plot individual points
             plt.scatter(trans_costs, infra_costs, color='purple', zorder=5, label='Pareto Optimal Points')
