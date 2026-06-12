@@ -1,0 +1,24 @@
+{
+    "numClients": 100,
+    "numCDs": 50,
+    "seed": 42,
+    "Clustered": true,
+    "unitTransportCost": 2.12,
+    "clusteringParams": {
+        "numCentroids": 10,
+        "deviationFromCentroid": 8,
+        "vecinityEffectRange": 0.5
+    },
+    "cdParams": {
+        "costRange": [15000, 40000],
+        "capacityRange": [1100, 3600],
+        "reorderCostRange": [180, 221],
+        "holdingCostRange": [2.0, 2.4],
+        "leadTimeRange": [6, 16],
+        "replenishmentCostRange": [500, 600]
+    },
+    "clientParams": {
+        "demandRange": [30, 151],
+        "varianceRange": [25, 51]
+    }
+}
