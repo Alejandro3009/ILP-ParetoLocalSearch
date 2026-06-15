@@ -1,0 +1,9 @@
+# name                  label                       type   range
+tabuListSize           "--tabuListSize "             i     (2, 30)
+tabuTenure             "--tabuTenure "               i     (1, 15)
+neiborsGenerated       "--neiborsGenerated "         i     (10, 30)
+amountInitialSolutions "--amountInitialSolutions "   i     (1, 5)
+relaxedGeneration      "--relaxedGeneration "        c     ("True", "False")
+initialization         "--initialization "           c     ("random", "dualPriorityList")
+searchMethod           "--searchMethod "             c     ("steepestDescent", "firstDescent")
+neiborhoodGeneration   "--neiborhoodGeneration "     c     ("random", "relaxed")
