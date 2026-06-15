@@ -23,6 +23,11 @@ def createTabuList(instanceContent):
 
 def createTabuRate(cds):
     tabuRate = {}
+    
+    # Defensive check: if cds is empty, handle gracefully to prevent IndexError
+    if len(cds) == 0:
+        return tabuRate
+        
     for i in range(len(cds[0].state)):
         tabuRate[f"{i}opened"] = 0
         tabuRate[f"{i}closed"] = 0
@@ -96,9 +101,12 @@ def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, max
 
     return validTabuPoints, solverTime, solverIterations, solverNodes
 
-def selectOperator(operatorConfig):
-    methods = [item["method"] for item in operatorConfig]
-    probabilities = [item["prob"] for item in operatorConfig]
+def selectOperator(movementsOperators):
+    if isinstance(movementsOperators, str):
+        return movementsOperators
+
+    methods = [item["method"] for item in movementsOperators]
+    probabilities = [item["prob"] for item in movementsOperators]
     return random.choices(methods, weights=probabilities, k=1)[0]
 
 def hybridNeighborGeneration(nonDominatedPoints, instance, movementsOperators, neiborsGenerated, fixingSize, maxWorkers, alphaValue, lexPoints, tabu, movementSize):
@@ -237,19 +245,32 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
         # Se compara con cada punto del frente de Pareto actual
         # Si el punto de referencia fue dominado anteriormente, no se usa durante las comparaciones
         for referencePoint in pointsList:
-            if referencePoint in pointsToRemove:
-                continue
 
             # Si el nuevo punto domina fuertemente o debilmente a un punto del frente actual, se agrega a la lista de nuevos puntos no dominados 
             # y se elimina el punto dominado del frente actual
-            if (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and evaluatedPoint.Transport >= referencePoint.Transport) and evaluatedPoint != referencePoint:
+            is_worse_or_equal = (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and 
+                                 evaluatedPoint.Transport >= referencePoint.Transport)
+            is_strictly_worse = (evaluatedPoint.Infrastructure > referencePoint.Infrastructure or 
+                                 evaluatedPoint.Transport > referencePoint.Transport)
+            
+            if is_worse_or_equal and is_strictly_worse and evaluatedPoint.state != referencePoint.state:
                 nonDominated = False
                 break
+
+            if (evaluatedPoint.Infrastructure == referencePoint.Infrastructure and 
+                evaluatedPoint.Transport == referencePoint.Transport) and evaluatedPoint.state != referencePoint.state:
+                if evaluatedPoint.state > referencePoint.state:
+                    nonDominated = False
+                    break
+
+            #if (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and evaluatedPoint.Transport >= referencePoint.Transport) and evaluatedPoint.state != referencePoint.state:
+            #    nonDominated = False
+            #    break
 
         if not nonDominated:
             pointsToRemove.append(evaluatedPoint)
         else:
-            if movements is not None:
+            if movements is not None and len(tabuRate) > 0:
                 for move in movements.keys():
                     if movements[move] == 1:
                         tabuRate[f"{move}opened"] += 1
@@ -288,10 +309,12 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
     # 1. Inicialización y obtencion de parametros
     nonDominatedPoints = []
     aux, solverTime, callIterations, callNodes = calculateFitnessParallel(instance, initialState, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
-    nonDominatedPoints.extend(aux)
+    nonDominatedPoints.extend(copy.deepcopy(aux))
+
+    #print(f"DEBUG_SOLVER - Elementos válidos retornados por el solver inicial: {len(aux) if aux else 0}")
 
     foundPoints = []
-    foundPoints.extend(nonDominatedPoints)
+    foundPoints.extend(copy.deepcopy(nonDominatedPoints))
 
     i = 0
     iterationwithoutImprovement = 0
@@ -307,8 +330,12 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
     while i < iterationAmount: 
         # 2. Generar vecinos y remover duplicados
+
+        neighborhood = []
+        neighborMovements = []
+        tabuNeighborhood = []
         
-        print (f"Iteración {i+1}/{iterationAmount} - Generando vecinos...")
+        #print (f"Iteración {i+1}/{iterationAmount} - Generando vecinos...")
 
         neighborhood, neighborMovements, tabuNeighborhood, solverData = hybridNeighborGeneration(nonDominatedPoints, instance, movementOperator, neiborsGenerated, maxWorkers=maxWorkers,fixingSize=movementSize, 
                                                                                      alphaValue=alpha, lexPoints=lexPoints, tabu=tabu, movementSize=movementSize)
@@ -321,7 +348,7 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
         if len(tabuNeighborhood) > 0:
             tabuNeighborhood = removeDuplicateStates(tabuNeighborhood)
 
-        print (f"Iteración {i+1}/{iterationAmount} - Vecinos generados: {len(neighborhood)} - Vecinos tabu: {len(tabuNeighborhood)}")
+        #print (f"Iteración {i+1}/{iterationAmount} - Vecinos generados: {len(neighborhood)} - Vecinos tabu: {len(tabuNeighborhood)}")
 
         # 3. Evaluar vecinos marcados como tabu con criterio de aspiración
         if len(tabuNeighborhood) > 0:
@@ -334,7 +361,7 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         notFound, alreadyFound = checkIfFound(neighborhood, foundPoints)
 
-        print (f"Iteración {i+1}/{iterationAmount} - Vecinos encontrados: {len(notFound) + len(alreadyFound)}, Vecinos nuevos: {len(notFound)}")
+        #print (f"Iteración {i+1}/{iterationAmount} - Vecinos encontrados: {len(notFound) + len(alreadyFound)}, Vecinos nuevos: {len(notFound)}")
 
         # 4. Evaluar vecinos no encontrados
         paretoPoints, time, callIterations, callNodes = calculateFitnessParallel(instance, notFound, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
@@ -355,7 +382,8 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         allPotentialPoints = removeDuplicatePoints(allPotentialPoints)
 
-        nonDominatedPoints, tabuRate = checkDominance(allPotentialPoints, nonDominatedPoints, neighborMovements)
+        if len(allPotentialPoints) > 0:
+            nonDominatedPoints, tabuRate = checkDominance(allPotentialPoints, nonDominatedPoints, neighborMovements)
 
         nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
 
@@ -370,16 +398,16 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         if actualImprovement and frontChanged:
             iterationwithoutImprovement = 0
-            print(f"Iteración {i+1}/{iterationAmount} - Nuevo punto no dominado encontrado! Total en el frente: {len(nonDominatedPoints)}")
+            #print(f"Iteración {i+1}/{iterationAmount} - Nuevo punto no dominado encontrado! Total en el frente: {len(nonDominatedPoints)}")
         elif iterationwithoutImprovement >= maxIterationsWithoutImprovement:
-            print("No se han encontrado nuevos puntos no dominados en las últimas 5 iteraciones, terminando búsqueda.")
+            #print("No se han encontrado nuevos puntos no dominados en las últimas 5 iteraciones, terminando búsqueda.")
             stopped = [True, i]
             nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
             break
         else:
             iterationwithoutImprovement += 1
             i += 1
-            print(f"Iteración {i}/{iterationAmount} - No se encontraron nuevos puntos no dominados. Iteraciones sin mejora: {iterationwithoutImprovement}")
+            #print(f"Iteración {i}/{iterationAmount} - No se encontraron nuevos puntos no dominados. Iteraciones sin mejora: {iterationwithoutImprovement}")
             continue
         
         # 6. Añadir tabu de los movimientos más frecuentes en los nuevos puntos no dominados encontrados
@@ -398,7 +426,7 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
         if len(addedTabus) > tabuListSize:
             tabu, addedTabus = removeLastTabu(tabuTenure, tabu, addedTabus)
         
-        foundPoints.extend(paretoPoints)
+        foundPoints.extend(copy.deepcopy(paretoPoints))
 
         i += 1
     

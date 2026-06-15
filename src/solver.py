@@ -62,10 +62,12 @@ def solve_single_state(args):
         case "gurobi":
             worker_ampl.setOption("solver", "gurobi") 
             worker_ampl.setOption("presolve", 0)
-            worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
+            worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05 outlev=0")
+            worker_ampl.setOption('output', 0)
         case "knitro":
-            options = "outlev=0 mip_integral_gap_rel=0.05 opttol=1e-4 feastol=1e-4 mip_method=1"
+            options = "outlev=0 mip_integral_gap_rel=0.05 opttol=1e-4 feastol=1e-4 mip_method=1 outlev=0"
             worker_ampl.setOption("knitro_options", options)
+            worker_ampl.setOption('output', 0)
         case _:
             raise ValueError("El solver seleccionado no es reconocido.")
 
@@ -84,9 +86,11 @@ def solve_single_state(args):
 
     worker_ampl.solve()
     
-    if worker_ampl.getValue("solve_result") != "solved":
-        print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
-        return None, worker_ampl.getValue("solve_result")
+    # LINEAS DE DEPURACIÓN TEMPORAL:
+    status = worker_ampl.getValue("solve_result")
+    if status != "solved":
+        _ = None
+        #print(f"\n[AMPL ERROR] Estado: {state} | Status: {status} | Msg: {worker_ampl.getValue('solve_message')}")
 
     cdsFixedCost = worker_ampl.getParameter("F").getValues().toDict()
     infra_cost = worker_ampl.get_variable("InfrastructureCost").value() 
@@ -110,6 +114,10 @@ def solve_single_state(args):
 def calculateFitnessParallel(instance, statesList, max_workers=10, alphaValue=0.5, lexPoints=None, solver="gurobi"):
     """Parallel coordinator."""
     time0 = time()
+
+    clean_states = []
+    for state in statesList:
+        clean_states.append(tuple(int(val) for val in state))
     
     # Prepare arguments for each worker
     tasks = [(instance, state, alphaValue, lexPoints, solver) for state in statesList]
@@ -117,20 +125,30 @@ def calculateFitnessParallel(instance, statesList, max_workers=10, alphaValue=0.
     paretoPoints = []
     iterations = 0
     branchNodes = 0
+    
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
-        results = list(executor.map(solve_single_state, tasks))
-
-        for result in results:
-            if result[1] is None or result[1] != "solved":
-                print("Warning: One of the states could not be solved.")
-            else:
+        try:
+            # Dynamically execute worker tasks in isolated worker subprocesses
+            results = list(executor.map(solve_single_state, tasks))
+            
+            # FIXED: Properly unpack and check the processed results array
+            for result in results:
+                if result is None or result[0] is None:
+                    continue
+                if result[1] != "solved":
+                    continue
+                
+                # Append individual verified points into your tracking front array
                 paretoPoints.append(result[0])
                 iterations += result[2]
                 branchNodes += result[3]
+                
+        except Exception as e:
+            import traceback
+            print(f"\nCRITICAL THREAD ERROR EXPOSED: {str(e)}")
+            traceback.print_exc()
+            raise e
 
-        print(f"amount of states solved: {len(paretoPoints)} out of {len(results)}")
-    
     time1 = time()
     return paretoPoints, time1 - time0, iterations, branchNodes
 
@@ -148,10 +166,12 @@ def solve_single_relax_state(args):
         case "gurobi":
             worker_ampl.setOption("solver", "gurobi") 
             worker_ampl.setOption("presolve", 0)
-            worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
+            worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05 outlev=0")
+            worker_ampl.setOption('output', 0)
         case "knitro":
-            options = "outlev=0 mip_integral_gap_rel=0.05 opttol=1e-4 feastol=1e-4 mip_method=1"
+            options = "outlev=0 mip_integral_gap_rel=0.05 opttol=1e-4 feastol=1e-4 mip_method=1 outlev=0"
             worker_ampl.setOption("knitro_options", options)
+            worker_ampl.setOption('output', 0)
         case _:
             raise ValueError("El solver seleccionado no es reconocido.")
 
@@ -180,9 +200,11 @@ def solve_single_relax_state(args):
 
     worker_ampl.solve()
     
-    if worker_ampl.getValue("solve_result") != "solved":
-        print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
-        return None, worker_ampl.getValue("solve_result")
+    # LINEAS DE DEPURACIÓN TEMPORAL:
+    status = worker_ampl.getValue("solve_result")
+    if status != "solved":
+        _ = None
+        #print(f"\n[AMPL ERROR] Estado: {state} | Status: {status} | Msg: {worker_ampl.getValue('solve_message')}")
 
     asignacionZ = worker_ampl.get_variable("Z").get_values().toList()
     solveResult = worker_ampl.getValue("solve_result")
@@ -196,11 +218,17 @@ def solve_single_relax_state(args):
     # Use your existing rebalance logic
     fixState = fixAssignment(asignacionZ)
 
-    return tuple(fixState), solveResult, iterations, branchNodes
+    cleanFixState = tuple(int(x) for x in fixState)
+
+    return cleanFixState, solveResult, iterations, branchNodes
 
 def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_workers=10, alphaValue=0.5, lexPoints=None, tabuList=None, solver="gurobi"):
     """Parallel coordinator."""
     time0 = time()
+
+    clean_states = []
+    for state in statesList:
+        clean_states.append(tuple(int(val) for val in state))
     
     # Prepare arguments for each worker
     tasks = [(instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList, solver) for state in statesList]
@@ -208,17 +236,29 @@ def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_worker
     relaxStates = []
     iterations = 0
     branchNodes = 0
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
-        results = list(executor.map(solve_single_relax_state, tasks))
 
-        for result in results:
-            if result[1] is None:
-                print("Warning: One of the states could not be solved.")
-            else:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        try:
+            # Dynamically execute worker tasks in isolated worker subprocesses
+            results = list(executor.map(solve_single_relax_state, tasks))
+            
+            # FIXED: Properly unpack and check the processed results array
+            for result in results:
+                if result is None or result[0] is None:
+                    continue
+                if result[1] != "solved":
+                    continue
+                
+                # Append individual verified points into your tracking front array
                 relaxStates.append(result[0])
                 iterations += result[2]
                 branchNodes += result[3]
+                
+        except Exception as e:
+            import traceback
+            print(f"\nCRITICAL THREAD ERROR EXPOSED: {str(e)}")
+            traceback.print_exc()
+            raise e
     
     time1 = time()
     return relaxStates, time1 - time0, iterations, branchNodes
@@ -226,7 +266,7 @@ def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_worker
 def getInfo(solveMsg, solver = "knitro"):
     iterations = 0
     branchNodes = 0
-    print(f"solve MSG: {solveMsg}")
+
     if solveMsg:
         if solver == "gurobi":
             # Extracción para Gurobi
@@ -247,6 +287,5 @@ def getInfo(solveMsg, solver = "knitro"):
             matchNodes = re.search(r'(\d+)\s+nodes', solveMsg)
             if matchNodes:
                 branchNodes = int(matchNodes.group(1))
-    print(f"Iterations: {iterations}")
-    print(f"Branching nodes: {branchNodes}")
+    
     return iterations, branchNodes

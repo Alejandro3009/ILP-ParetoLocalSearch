@@ -253,29 +253,47 @@ def readLexicographicData(filePath):
         return None
 
 def loadDatInstance(name):
-
-    if not name.endswith(".dat"):
-        fileName = f"{name}.dat"
+    # Strip out any path characters irace passes to get just the raw name
+    clean_name = name.split('/')[-1].split('\\')[-1]
+    if not clean_name.endswith(".dat"):
+        fileName = f"{clean_name}.dat"
     else:
-        fileName = name
+        fileName = clean_name
         
-    folderName = "instances"
-    filePath = os.path.join(folderName, fileName)
+    # Force the path to resolve relative to this specific utils.py file location
+    import os
+    src_dir = os.path.dirname(os.path.abspath(__file__))      # Points to project/src/
+    project_root = os.path.dirname(src_dir)                   # Points to project/
+    filePath = os.path.join(project_root, "instances", fileName)
     
     try:
         with open(filePath, 'r', encoding='utf-8') as fileObject:
             fileContent = fileObject.read()
         return fileContent
     except FileNotFoundError:
-        print(f"Error: El archivo '{fileName}' no se encontró en la carpeta '{folderName}'.")
+        print(f"Error: El archivo '{fileName}' no se encontró en la ruta '{filePath}'.")
         return None
     except Exception as errorObject:
         print(f"Error inesperado al leer la instancia: {errorObject}")
         return None
 
-def loadConfig(configPath):
-    with open(configPath, 'r', encoding='utf-8') as file:
-        return json.load(file)
+def loadConfig(path="config.json"):
+    import os
+    import json
+    
+    # If a simple relative filename is given, force it to look at the project root
+    if not os.path.isabs(path) and (path == "config.json" or "config.json" in path):
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(src_dir)
+        path = os.path.join(project_root, "config.json")
+        
+    try:
+        with open(path, 'r', encoding='utf-8') as file:
+            configData = json.load(file)
+        return configData
+    except FileNotFoundError:
+        print(f"Error: No se encontró el archivo de configuración en '{path}'")
+        return None
     
 def invertedGenerationalDistance(epsilonX, epsilonY, heuristicPoints, infraLex, transLex):
     if not epsilonX or not epsilonY or not heuristicPoints:

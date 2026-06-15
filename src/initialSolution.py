@@ -61,7 +61,7 @@ def randomSolution(instanceContent, amount = 5):
             if demandAssignation[cd] > 0:
                 solution[cd] = 1
         
-        finalSolutions.append(tuple(solution))
+        finalSolutions.append(tuple(solution.tolist()))
 
     return finalSolutions
 
@@ -99,14 +99,19 @@ def getPriorityCostList(instanceContent):
     cdsFixedCost = tempAmpl.getParameter("F").getValues()
     cdsCapacity = tempAmpl.getParameter("Cap").getValues()
 
-    cds = tempAmpl.getSet("I").getValues().toList()
+    fixed_cost_dict = cdsFixedCost.to_dict()
+    capacity_dict = cdsCapacity.to_dict()
+    
+    tempAmpl.close()
 
-    tempAmpl.close() # Cerramos la instancia temporal de AMPL para liberar recursos
-
-    # ordenamos los centros por eficiencia en coste de apertura
     openingEfficiency = []
-    for cd in cds:
-         openingEfficiency.append((cd, cdsFixedCost[cd] / cdsCapacity[cd])) # eficiencia = coste fijo / capacidad
+    
+    # 2. Iterate through the dictionary keys safely using bracket notation
+    for cd in fixed_cost_dict.keys():
+        cost = fixed_cost_dict[cd]
+        capacity = capacity_dict[cd]
+        
+        openingEfficiency.append((cd, cost / capacity)) # eficiencia = coste fijo / capacidad
 
     return sorted(openingEfficiency, key=lambda x: x[1], reverse=True)
 
@@ -159,6 +164,6 @@ def dualPriorityList(instanceContent, amount):
             totalCapacity += cdsCapacity[cd]
             solution[cd] = 1
 
-        initialStates.append(tuple(solution))
+        initialStates.append(tuple(solution.tolist()))
 
     return initialStates

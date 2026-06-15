@@ -5,16 +5,15 @@
   "plsParams": {
     "amountInitialSolutions": 5,
     "iterations": 5,
-    "maxIterationsWithoutImprovement": 30,
+    "maxIterationsWithoutImprovement": 3,
     "neiborsGenerated": 10,
     "movementSize": 5,
     "tabuListSize": 5,
     "tabuTenure": 5,
-    "maxWorkers": 15,
+    "maxWorkers": 2,
     "alpha": 0.5,
     "fixListSize": 0.8,
     "solver": "knitro",
-    "relaxedGeneration": true,
     "operators": {
       "initialization": "random",
       "searchMethod": "steepestDescent",
