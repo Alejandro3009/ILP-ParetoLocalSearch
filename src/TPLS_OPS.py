@@ -323,7 +323,7 @@ def onePointParetoSearch(initialState, instance, movementOperator, lexPoints, ne
     stopped = [False, None]
 
     while i < iterationAmount: 
-        #print(f"Iteracion {i+1}/{iterationAmount}")
+        print(f"Iteracion {i+1}/{iterationAmount}")
 
         neighborhood = []
         neighborMovements = []

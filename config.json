@@ -10,7 +10,7 @@
     "movementSize": 5,
     "tabuListSize": 5,
     "tabuTenure": 5,
-    "maxWorkers": 2,
+    "maxWorkers": 10,
     "alpha": 0.5,
     "fixListSize": 0.8,
     "solver": "knitro",

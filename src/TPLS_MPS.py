@@ -248,24 +248,24 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
 
             # Si el nuevo punto domina fuertemente o debilmente a un punto del frente actual, se agrega a la lista de nuevos puntos no dominados 
             # y se elimina el punto dominado del frente actual
-            is_worse_or_equal = (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and 
-                                 evaluatedPoint.Transport >= referencePoint.Transport)
-            is_strictly_worse = (evaluatedPoint.Infrastructure > referencePoint.Infrastructure or 
-                                 evaluatedPoint.Transport > referencePoint.Transport)
+            #is_worse_or_equal = (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and 
+            #                     evaluatedPoint.Transport >= referencePoint.Transport)
+            #is_strictly_worse = (evaluatedPoint.Infrastructure > referencePoint.Infrastructure or 
+            #                     evaluatedPoint.Transport > referencePoint.Transport)
             
-            if is_worse_or_equal and is_strictly_worse and evaluatedPoint.state != referencePoint.state:
-                nonDominated = False
-                break
-
-            if (evaluatedPoint.Infrastructure == referencePoint.Infrastructure and 
-                evaluatedPoint.Transport == referencePoint.Transport) and evaluatedPoint.state != referencePoint.state:
-                if evaluatedPoint.state > referencePoint.state:
-                    nonDominated = False
-                    break
-
-            #if (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and evaluatedPoint.Transport >= referencePoint.Transport) and evaluatedPoint.state != referencePoint.state:
+            #if is_worse_or_equal and is_strictly_worse and evaluatedPoint.state != referencePoint.state:
             #    nonDominated = False
             #    break
+
+            #if (evaluatedPoint.Infrastructure == referencePoint.Infrastructure and 
+            #    evaluatedPoint.Transport == referencePoint.Transport) and evaluatedPoint.state != referencePoint.state:
+            #    if evaluatedPoint.state > referencePoint.state:
+            #        nonDominated = False
+            #        break
+
+            if (evaluatedPoint.Infrastructure >= referencePoint.Infrastructure and evaluatedPoint.Transport >= referencePoint.Transport) and evaluatedPoint.state != referencePoint.state:
+                nonDominated = False
+                break
 
         if not nonDominated:
             pointsToRemove.append(evaluatedPoint)
@@ -335,7 +335,7 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
         neighborMovements = []
         tabuNeighborhood = []
         
-        #print (f"Iteración {i+1}/{iterationAmount} - Generando vecinos...")
+        print (f"Iteración {i+1}/{iterationAmount} - Generando vecinos...")
 
         neighborhood, neighborMovements, tabuNeighborhood, solverData = hybridNeighborGeneration(nonDominatedPoints, instance, movementOperator, neiborsGenerated, maxWorkers=maxWorkers,fixingSize=movementSize, 
                                                                                      alphaValue=alpha, lexPoints=lexPoints, tabu=tabu, movementSize=movementSize)
