@@ -8,12 +8,12 @@ from amplpy import AMPL
 
 # Movements selection
 
-def generateInitialSolution(selectedStrategy, currentInstance):
+def generateInitialSolution(selectedStrategy, currentInstance, amountSolutions):
     match selectedStrategy:
         case "dualPriorityList":
-            return dualPriorityList(currentInstance, amount=5)
+            return dualPriorityList(currentInstance, amountSolutions)
         case "random":
-            return randomSolution(currentInstance, amount=5)
+            return randomSolution(currentInstance, amountSolutions)
         case _:
             raise ValueError("Estrategia de generación de solución inicial no reconocida.")
         

@@ -1,5 +1,6 @@
 import concurrent.futures
 import random
+import re
 from time import time
 from amplpy import AMPL
 from src.model import cd, client, paretoPoint, SilentOutputHandler, modelo
@@ -49,12 +50,11 @@ def rebalanceStates(state, fixCosts, asignacion, infra_cost):
 
 def solve_single_state(args):
     """Worker function: Solves one state in a private AMPL instance."""
-    instance, state, alphaValue, lexPoints = args
+    instance, state, alphaValue, lexPoints, solver = args
 
     # Each process MUST have its own AMPL object
     worker_ampl = AMPL()
     worker_ampl.eval(modelo)
-<<<<<<< HEAD
 
     match solver:
         case "gurobi":
@@ -69,11 +69,6 @@ def solve_single_state(args):
         case _:
             raise ValueError("El solver seleccionado no es reconocido.")
 
-=======
-    worker_ampl.setOption("solver", "gurobi") 
-    worker_ampl.setOption("presolve", 0)
-    worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
->>>>>>> parent of a996fc2 (Irace)
     worker_ampl.setOutputHandler(SilentOutputHandler())
 
     # Set data and fix Z variables [cite: 71]
@@ -100,6 +95,10 @@ def solve_single_state(args):
     trans_cost = worker_ampl.get_variable("TransportCost").value()
     asignacion = worker_ampl.get_variable("D").get_values().toList()
     solveResult = worker_ampl.getValue("solve_result")
+
+    solveMsg = worker_ampl.getValue("solve_message")
+
+    iterations, branchNodes = getInfo(solveMsg, solver)
     
     # Close session to free memory
     worker_ampl.close()
@@ -107,9 +106,9 @@ def solve_single_state(args):
     # Use your existing rebalance logic
     new_state, new_infra = rebalanceStates(list(state), cdsFixedCost, asignacion, infra_cost)
 
-    return paretoPoint(new_infra, trans_cost, tuple(new_state), False), solveResult
+    return paretoPoint(new_infra, trans_cost, tuple(new_state), False), solveResult, iterations, branchNodes
 
-def calculateFitnessParallel(instance, statesList, max_workers=10, alphaValue=0.5, lexPoints=None):
+def calculateFitnessParallel(instance, statesList, solver, max_workers=10, alphaValue=0.5, lexPoints=None):
     """Parallel coordinator."""
     time0 = time()
 
@@ -118,10 +117,9 @@ def calculateFitnessParallel(instance, statesList, max_workers=10, alphaValue=0.
         clean_states.append(tuple(int(val) for val in state))
     
     # Prepare arguments for each worker
-    tasks = [(instance, state, alphaValue, lexPoints) for state in statesList]
+    tasks = [(instance, state, alphaValue, lexPoints, solver) for state in statesList]
     
     paretoPoints = []
-<<<<<<< HEAD
     iterations = 0
     branchNodes = 0
     
@@ -147,31 +145,19 @@ def calculateFitnessParallel(instance, statesList, max_workers=10, alphaValue=0.
             print(f"\nCRITICAL THREAD ERROR EXPOSED: {str(e)}")
             traceback.print_exc()
             raise e
-=======
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
-        results = list(executor.map(solve_single_state, tasks))
-
-        for result in results:
-            if result[0] is None:
-                print("Warning: One of the states could not be solved.")
-            else:
-                paretoPoints.append(result[0])
->>>>>>> parent of a996fc2 (Irace)
 
     time1 = time()
-    return paretoPoints, time1 - time0
+    return paretoPoints, time1 - time0, iterations, branchNodes
 
 def fixAssignment(state):
     return [1 if val[1] >= 0.3 else 0 for val in state]
 
 def solve_single_relax_state(args):
-    instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList = args
+    instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList, solver = args
     
     # Each process MUST have its own AMPL object
     worker_ampl = AMPL()
     worker_ampl.eval(modelo)
-<<<<<<< HEAD
 
     match solver:
         case "gurobi":
@@ -186,11 +172,6 @@ def solve_single_relax_state(args):
         case _:
             raise ValueError("El solver seleccionado no es reconocido.")
 
-=======
-    worker_ampl.setOption("solver", "gurobi") 
-    worker_ampl.setOption("presolve", 0)
-    worker_ampl.setOption("gurobi_options", "NonConvex=2 MIPGap=0.05")
->>>>>>> parent of a996fc2 (Irace)
     worker_ampl.setOption("relax_integrality", 1)
     worker_ampl.setOutputHandler(SilentOutputHandler())
 
@@ -227,21 +208,21 @@ def solve_single_relax_state(args):
     
     print(asignacionZ)
 
+    solveMsg = worker_ampl.getValue("solve_message")
+
+    iterations, branchNodes = getInfo(solveMsg, solver)
+
     # Close session to free memory
     worker_ampl.close()
     
     # Use your existing rebalance logic
     fixState = fixAssignment(asignacionZ)
 
-<<<<<<< HEAD
     cleanFixState = tuple(int(x) for x in fixState)
 
     return cleanFixState, solveResult, iterations, branchNodes
-=======
-    return  tuple(fixState), solveResult
->>>>>>> parent of a996fc2 (Irace)
 
-def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_workers=10, alphaValue=0.5, lexPoints=None, tabuList=None):
+def parallelLinearRelaxation(instanceContent, statesList, fixingSize, solver, max_workers=10, alphaValue=0.5, lexPoints=None, tabuList=None):
     """Parallel coordinator."""
     time0 = time()
 
@@ -250,17 +231,11 @@ def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_worker
         clean_states.append(tuple(int(val) for val in state))
     
     # Prepare arguments for each worker
-    tasks = [(instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList) for state in statesList]
+    tasks = [(instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList, solver) for state in statesList]
     
     relaxStates = []
-<<<<<<< HEAD
     iterations = 0
     branchNodes = 0
-=======
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
-        results = list(executor.map(solve_single_relax_state, tasks))
->>>>>>> parent of a996fc2 (Irace)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         try:
@@ -276,7 +251,6 @@ def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_worker
                 
                 # Append individual verified points into your tracking front array
                 relaxStates.append(result[0])
-<<<<<<< HEAD
                 iterations += result[2]
                 branchNodes += result[3]
                 
@@ -285,64 +259,32 @@ def parallelLinearRelaxation(instanceContent, statesList, fixingSize, max_worker
             print(f"\nCRITICAL THREAD ERROR EXPOSED: {str(e)}")
             traceback.print_exc()
             raise e
-=======
->>>>>>> parent of a996fc2 (Irace)
     
     time1 = time()
-    return relaxStates, time1 - time0
+    return relaxStates, time1 - time0, iterations, branchNodes
 
-<<<<<<< HEAD
 def getInfo(solveMsg, solver = "knitro"):
     iterations = 0
     branchNodes = 0
-
+    print(f"solve MSG: {solveMsg}")
     if solveMsg:
         if solver == "gurobi":
             # Extracción para Gurobi
             matchIters = re.search(r'(\d+)\s+simplex iterations', solveMsg)
             if matchIters:
                 iterations = int(matchIters.group(1))
-=======
->>>>>>> parent of a996fc2 (Irace)
 
+            matchNodes = re.search(r'(\d+)\s+branching nodes', solveMsg)
+            if matchNodes:
+                branchNodes = int(matchNodes.group(1))
 
-#def calculateFitness(cdList, clientList, K, TH, statesList, alphaValue):
-    paretoPoints = []
-
-<<<<<<< HEAD
+        elif solver == "knitro":
+            # Extracción para Knitro
+            matchIters = re.search(r'(\d+)\s+subproblem solves', solveMsg)
+            if matchIters:
+                iterations = int(matchIters.group(1))
             matchNodes = re.search(r'(\d+)\s+nodes', solveMsg)
             if matchNodes:
                 branchNodes = int(matchNodes.group(1))
-    
+
     return iterations, branchNodes
-=======
-    time0 = time() 
-    for state in statesList:
-        amplDataFix = instanceToAmpl(cdList, clientList, K, TH)
-
-        ampl.eval("reset data;")
-        ampl.eval(amplDataFix)
-        ampl.eval("unfix Z;")
-
-        for i, val in enumerate(state):
-            ampl.eval(f"fix Z[{i}] := {val};")
-
-        ampl.param['Alpha'] = alphaValue
-
-        ampl.solve()
-        
-        infra_cost = ampl.get_variable("InfrastructureCost").value()
-
-        trans_cost = ampl.get_variable("TransportCost").value()
-
-        asignacion = ampl.get_variable("D").get_values().toList()
-
-        state, infra_cost = rebalanceStates(list(state), cdList, asignacion, infra_cost)
-
-        print(state, infra_cost)
-
-        paretoPoints.append(paretoPoint(infra_cost, trans_cost, tuple(state), False))
-
-    time1 = time()
-    return paretoPoints, time1 - time0
->>>>>>> parent of a996fc2 (Irace)

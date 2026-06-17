@@ -3,16 +3,10 @@
   "k": 1.28,
   "th": 1000,
   "plsParams": {
-<<<<<<< HEAD
     "amountInitialSolutions": 5,
     "iterations": 5,
     "maxIterationsWithoutImprovement": 3,
     "neiborsGenerated": 10,
-=======
-    "popSize": 5,
-    "iterations": 50,
-    "maxIterationsWithoutImprovement": 10,
->>>>>>> parent of a996fc2 (Irace)
     "movementSize": 5,
     "tabuListSize": 5,
     "tabuTenure": 5,
