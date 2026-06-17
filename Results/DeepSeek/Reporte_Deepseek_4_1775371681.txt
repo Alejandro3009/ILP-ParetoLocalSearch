@@ -1,0 +1,39 @@
+==================================================
+         REPORTE DE EJECUCIÓN MULTIOBJETIVO       
+==================================================
+URL Instancia Evaluada: https://gist.github.com/athersoft/63415c7f2205b1c61129ebc1ee3cfcd8/raw/e1635522259d8076bad99dcc0865d11de6b01c96/140x70-deepseek.dat
+Tamaño de Instancia: 70 CDs
+
+CARACTERIZACIÓN DE LA INSTANCIA
+--- Análisis de la Instancia ---
+Costos Fijos (F):
+  - Promedio: 272500.00
+  - Desv. Estándar: 101025.99
+  - Coef. Variación (CV): 37.07%
+Capacidades (Cap):
+  - Promedio: 5485.00
+  - Desv. Estándar: 2626.68
+  - Coef. Variación (CV): 47.89%
+Demandas (d):
+  - Promedio: 154.71
+  - Desv. Estándar: 73.19
+  - Coef. Variación (CV): 47.31%
+Costos de Transporte (TC):
+  - Promedio: 49.27
+  - Desv. Estándar: 23.39
+  - Coef. Variación (CV): 47.46%
+
+Análisis de Tensión:
+  - Demanda Total de la Red: 21660.00
+  - Capacidad Total de CDs : 383950.00
+  - Ratio (Cap/Dem)        : 17.73x (Holgada)
+--------------------------------
+
+RESULTADOS HEURÍSTICA (TPLS)
+Tiempo de ejecución : 299.0285 segundos
+
+Frente de Pareto Final - 4 puntos:
+  Punto 1: Transp=30940334000.00, Infra=5335842.34 | State: (1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 2: Transp=29857832000.00, Infra=5465552.70 | State: (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 3: Transp=31000718000.00, Infra=5332570.07 | State: (1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 4: Transp=30965528000.00, Infra=5335595.21 | State: (1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)

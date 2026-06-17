@@ -1,0 +1,38 @@
+==================================================
+         REPORTE DE EJECUCIÓN MULTIOBJETIVO       
+==================================================
+URL Instancia Evaluada: https://gist.github.com/athersoft/383e7ddf48dcf0d51af9ab5bec757eae/raw/a59a7a3fd7a7cc5b1b610a6b8a9cc5384928e791/100x50-deepseek.dat
+Tamaño de Instancia: 50 CDs
+
+CARACTERIZACIÓN DE LA INSTANCIA
+--- Análisis de la Instancia ---
+Costos Fijos (F):
+  - Promedio: 296000.00
+  - Desv. Estándar: 115446.96
+  - Coef. Variación (CV): 39.00%
+Capacidades (Cap):
+  - Promedio: 5410.00
+  - Desv. Estándar: 2597.56
+  - Coef. Variación (CV): 48.01%
+Demandas (d):
+  - Promedio: 248.00
+  - Desv. Estándar: 115.46
+  - Coef. Variación (CV): 46.56%
+Costos de Transporte (TC):
+  - Promedio: 52.15
+  - Desv. Estándar: 25.93
+  - Coef. Variación (CV): 49.72%
+
+Análisis de Tensión:
+  - Demanda Total de la Red: 24800.00
+  - Capacidad Total de CDs : 270500.00
+  - Ratio (Cap/Dem)        : 10.91x (Holgada)
+--------------------------------
+
+RESULTADOS HEURÍSTICA (TPLS)
+Tiempo de ejecución : 326.6662 segundos
+
+Frente de Pareto Final - 3 puntos:
+  Punto 1: Transp=39517276000.00, Infra=6944945.80 | State: (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 2: Transp=40473544000.00, Infra=6322661.88 | State: (1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  Punto 3: Transp=39567478000.00, Infra=6588987.38 | State: (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
