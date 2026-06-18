@@ -1,8 +1,6 @@
-from os import system
-
 import numpy as np
 import random
-from src.utils import getTotalDemand, getStateTuple
+from src.utils import getTotalDemand
 from src.model import modelo
 from amplpy import AMPL
 
@@ -55,7 +53,7 @@ def randomSolution(instanceContent, amount = 5):
             
             j += 1
         
-        solution = np.zeros(len(cdsCapacity), dtype=int)
+        solution = [0 for i in cds]
 
         for cd in demandAssignation:
             if demandAssignation[cd] > 0:
@@ -150,7 +148,7 @@ def dualPriorityList(instanceContent, amount):
 
         # seleccionamos el centro con la mejor puntuación combinada     
         totalCapacity = 0
-        solution = np.zeros(len(cds), dtype=int)
+        solution = [0 for i in cds]
 
         for cd, _ in combinedEfficiency:
             if totalCapacity >= totalDemand:

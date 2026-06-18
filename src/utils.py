@@ -5,7 +5,8 @@ import json
 import os
 import numpy as np
 import math
-from src.model import cd, client, modelo
+import statistics
+from src.model import modelo
 
 def printSummary(cds, clients, K, TH):
     print("\n" + "="*55)
@@ -152,7 +153,29 @@ def characterizeInstance(instanceContent):
     ]
     return "\n".join(report)
 
-def exportData(instanceName, instance, amountOfCDs, epsilonData, gottenEpsilon, tplsData):
+def getReportData(experimentRegistry):
+    tplsData = {}
+
+    tplsData['maxHyperVolume'] = max(experimentRegistry['hypervolume'])
+    tplsData['avgHyperVolume'] = statistics.mean(experimentRegistry['hypervolume'])
+    tplsData['maxInvertedGenerationalDistance'] = max(experimentRegistry['invertedGenerationalDistance'])
+    tplsData['avgInvertedGenerationalDistance'] = statistics.mean(experimentRegistry['invertedGenerationalDistance'])
+    tplsData['maxSpacing'] = max(experimentRegistry['spacing'])
+    tplsData['avgSpacing'] = statistics.mean(experimentRegistry['spacing'])
+
+    tplsData['avgSolverIterations'] = round(statistics.mean(experimentRegistry['amountCallsSolver']), 0)
+    tplsData['avgSolverNodes'] = round(statistics.mean(experimentRegistry['amountNodesSolver']), 0)
+
+    tplsData['avgTime'] = statistics.mean(experimentRegistry['executionTime'])
+    tplsData['avgIterations'] = round(statistics.mean(experimentRegistry['executedIterations']), 0)
+
+    bestFrontIndex = np.argmax(experimentRegistry['hypervolume'])
+    tplsData['bestFront'] = experimentRegistry['points'][bestFrontIndex]
+    tplsData['bestFrontTime'] = experimentRegistry['executionTime'][bestFrontIndex]
+
+    return tplsData
+
+def exportData(instanceName, instance, amountOfCDs, epsilonData, tplsData):
     """Generates a text report identical to the provided examples."""
     report = [
         "==================================================",
@@ -164,93 +187,51 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, gottenEpsilon, 
         characterizeInstance(instance),
     ]
 
-    if gottenEpsilon:
-        report.extend([
-            "\nRESULTADOS EPSILON-CONSTRAINT",
-            f"Tiempo de ejecución : {epsilonData['time']:.4f} segundos",
-            f"Hipervolumen        : {epsilonData['hv']:.4f}"
-            f"\nPuntos Lexicográficos (Extremos del Frente):",
-            f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
-            f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
-            f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
-            f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
-        ])
+    report.extend([
+        "\nRESULTADOS EPSILON-CONSTRAINT",
+        f"Tiempo de ejecución :         {epsilonData['time']:.4f} segundos",
+        f"Hipervolumen        :         {epsilonData['hv']:.4f}",
+        f"Cantidad de iteraciones:      {epsilonData['solverIterations']}",
+        f"Cantidad de branching Nodes:  {epsilonData['solverbranchingNodes']}"
+        f"\nPuntos Lexicográficos (Extremos del Frente):",
+        f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+        f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+        f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
+        f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
+    ])
 
-        for i in range(len(epsilonData['paretoX'])):
-            report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
+    for i in range(len(epsilonData['paretoX'])):
+        report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
 
     report.append("\nRESULTADOS HEURÍSTICA (TPLS)")
-    if tplsData['stopped']:
-        report.append(f"** El TPLS se detuvo prematuramente en la iteración {tplsData['stoppingIteration']} de {tplsData['amountIterations']} debido a falta de mejora. **")
-    else:
-        report.append(f"** El TPLS completó todas las iteraciones ({tplsData['amountIterations']}) sin detenerse por falta de mejora. **")
-    report.append(f"Tiempo de ejecución : {tplsData['executionTime']:.4f} segundos")
-    if gottenEpsilon:
-        report.append(f"Hipervolumen        : {tplsData['hypervolume']:.4f}")
-        report.append(f"Distancia Generacional Invertida: {tplsData['invertedGenerationalDistance']:.4f}")
-        report.append(f"Espaciado             : {tplsData['spacing']:.4f}")
-    report.append(f"\nFrente de Pareto Final - {len(tplsData['points'])} puntos:")
+    report.append(f"** El TPLS durante la ejecucion de los {tplsData['amountOfExperiments']}, en promedio tardo en ejecutarse {tplsData['avgIterations']} de {tplsData['maxIterations']} **")
+
+    report.append(f"Tiempo de ejecución :   {tplsData['avgTime']:.4f} segundos")
     
-    for i, p in enumerate(tplsData['points']):
+    report.append(f"Hipervolumen: Promedio = {tplsData['avgHyperVolume']:.4f} - Mejor = {tplsData['maxHyperVolume']:.4f}")
+    report.append(f"Distancia Generacional Invertida: Promedio = {tplsData['avgInvertedGenerationalDistance']:.4f} - Mejor = {tplsData['maxInvertedGenerationalDistance']:.4f}")
+    report.append(f"Espaciado: Promedio = {tplsData['avgSpacing']:.4f} - Mejor = {tplsData['maxSpacing']:.4f}")
+
+    report.append(f"Cantidad de iteraciones del solver: {tplsData['avgSolverIterations']}")
+    report.append(f"Cantidad de branching Nodes:        {tplsData['avgSolverNodes']}")
+
+    report.append(f"\nFrente de Pareto Final - {len(tplsData['bestFront'])} puntos:")
+    
+    for i, p in enumerate(tplsData['bestFront']):
         report.append(f"  Punto {i+1}: Transp={p.Transport:.2f}, Infra={p.Infrastructure:.2f} | State: {p.state}")
 
-    if gottenEpsilon:
-        report.append("\nCOMPARATIVA ESTADÍSTICA")
-        if epsilonData['hv'] > 0:
-            calidad = (tplsData['hypervolume'] / epsilonData['hv']) * 100
-            report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
-            if tplsData['executionTime'] > 0:
-                aceleracion = epsilonData['time'] / tplsData['executionTime'] 
-                report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
+    report.append("\nCOMPARATIVA ESTADÍSTICA")
+    if epsilonData['hv'] > 0:
+        calidad = (tplsData['maxHyperVolume'] / epsilonData['hv']) * 100
+        report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
+        if tplsData['bestFrontTime'] > 0:
+            aceleracion = epsilonData['time'] / tplsData['bestFrontTime'] 
+            report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
 
     fileName = f"Reporte_{instanceName}_using_{tplsData['usedStrategy']}.txt" 
     with open(fileName, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
     print(f"*** Reporte guardado en {fileName} ***") 
-
-def readLexicographicData(filePath):
-    data = {
-        "infraLex": {"x": 0.0, "y": 0.0},
-        "transpLex": {"x": 0.0, "y": 0.0},
-        "paretoX": [],
-        "paretoY": []
-    }
-
-    try:
-        with open(filePath, 'r', encoding='utf-8') as file:
-            content = file.read()
-
-            # 1. Extrair Pontos Lexicográficos usando Regex
-            # Busca o padrão "Punto X... [número]"
-            infraX = re.search(r"Punto X lexicográfico de infraestructura e inventario:\s+([\d\.]+)", content)
-            infraY = re.search(r"Punto Y lexicográfico de infraestructura e inventario:\s+([\d\.]+)", content)
-            transpX = re.search(r"Punto X lexicográfico de transporte:\s+([\d\.]+)", content)
-            transpY = re.search(r"Punto Y lexicográfico de transporte:\s+([\d\.]+)", content)
-
-            if infraX: data["infraLex"]["x"] = float(infraX.group(1))
-            if infraY: data["infraLex"]["y"] = float(infraY.group(1))
-            if transpX: data["transpLex"]["x"] = float(transpX.group(1))
-            if transpY: data["transpLex"]["y"] = float(transpY.group(1))
-
-            # 2. Extrair listas Pareto X e Pareto Y
-            # Busca o padrão "Pareto X: [ ... ]"
-            listX = re.search(r"Pareto X:\s*(\[.*?\])", content)
-            listY = re.search(r"Pareto Y:\s*(\[.*?\])", content)
-
-            if listX:
-                # ast.literal_eval converte a string da lista em uma lista real de Python com segurança
-                data["paretoX"] = ast.literal_eval(listX.group(1))
-            if listY:
-                data["paretoY"] = ast.literal_eval(listY.group(1))
-
-        return data
-
-    except FileNotFoundError:
-        print(f"Error: El archivo {filePath} no fue encontrado.")
-        return None
-    except Exception as e:
-        print(f"Error al procesar el archivo: {e}")
-        return None
 
 def loadDatInstance(name):
 

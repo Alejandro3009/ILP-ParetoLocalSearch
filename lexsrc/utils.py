@@ -46,6 +46,8 @@ def loadEpsilonResults(filePath, instanceUrl):
             return {
                 'time': data['metadata']['executionTime'],
                 'hv': data['metadata']['hypervolume'],
+                'solverIterations':data['info']['simplexIterations'],
+                'solverbranchingNodes':data['info']['branchNodes'],
                 'transMin': data['lexicographicPoints']['infraMax']['transp'],
                 'transMax': data['lexicographicPoints']['infraMin']['transp'],
                 'infraMin': data['lexicographicPoints']['infraMin']['infra'],

@@ -30,46 +30,50 @@ Análisis de Tensión:
 --------------------------------
 
 RESULTADOS EPSILON-CONSTRAINT
-Tiempo de ejecución : 131.6529 segundos
-Hipervolumen        : 0.8523
+Tiempo de ejecución :         108.7685 segundos
+Hipervolumen        :         0.8537
+Cantidad de iteraciones:      1243902
+Cantidad de branching Nodes:  587593
 Puntos Lexicográficos (Extremos del Frente):
   - Nadir: Transp=1164985000.00, Infra=3206926.15
   - Transp. Mín   : Transp=958709000.00, Infra=3206926.15
   - Infra. Mín    : Transp=1164985000.00, Infra=1935907.54
 
-Puntos del Frente (16 steps):
+Puntos del Frente (15 steps):
   Punto 1: Transp=958709000.00, Infra=3206926.15
   Punto 2: Transp=959297000.00, Infra=2923913.04
   Punto 3: Transp=962027000.00, Infra=2625017.34
-  Punto 4: Transp=962027000.00, Infra=2647321.34
-  Punto 5: Transp=981090000.00, Infra=2550242.87
-  Punto 6: Transp=984162000.00, Infra=2497827.02
-  Punto 7: Transp=996385000.00, Infra=2359580.41
-  Punto 8: Transp=996493000.00, Infra=2140206.31
-  Punto 9: Transp=998493000.00, Infra=2126446.84
-  Punto 10: Transp=1018628000.00, Infra=2013015.99
-  Punto 11: Transp=1019988000.00, Infra=2005964.93
-  Punto 12: Transp=1046719000.00, Infra=2005340.77
-  Punto 13: Transp=1064548000.00, Infra=2005259.06
-  Punto 14: Transp=1118500000.00, Infra=2001149.61
-  Punto 15: Transp=1141427000.00, Infra=1944839.86
-  Punto 16: Transp=1164985000.00, Infra=1935907.54
+  Punto 4: Transp=981090000.00, Infra=2550242.87
+  Punto 5: Transp=984162000.00, Infra=2500804.70
+  Punto 6: Transp=996385000.00, Infra=2354391.62
+  Punto 7: Transp=996493000.00, Infra=2140206.31
+  Punto 8: Transp=998493000.00, Infra=2126446.84
+  Punto 9: Transp=1018628000.00, Infra=2041633.99
+  Punto 10: Transp=1019988000.00, Infra=2005964.93
+  Punto 11: Transp=1046719000.00, Infra=2005340.77
+  Punto 12: Transp=1064548000.00, Infra=2005259.06
+  Punto 13: Transp=1118500000.00, Infra=2001149.61
+  Punto 14: Transp=1141427000.00, Infra=1944839.86
+  Punto 15: Transp=1164985000.00, Infra=1935907.54
 
 RESULTADOS HEURÍSTICA (TPLS)
-** El TPLS se detuvo prematuramente en la iteración 20 de 50 debido a falta de mejora. **
-Tiempo de ejecución : 518.6962 segundos
-Hipervolumen        : 0.8202
-Distancia Generacional Invertida: 803.0604
-Espaciado             : 0.3716
+** El TPLS durante la ejecucion de los 2, en promedio tardo en ejecutarse 3 de 3 **
+Tiempo de ejecución :   41.4442 segundos
+Hipervolumen: Promedio = 0.8384 - Mejor = 0.8389
+Distancia Generacional Invertida: Promedio = 806.2978 - Mejor = 806.2984
+Espaciado: Promedio = 0.1794 - Mejor = 0.1926
+Cantidad de iteraciones del solver: 9980.0
+Cantidad de branching Nodes:        12416
 
-Frente de Pareto Final - 6 puntos:
-  Punto 1: Transp=970052000.00, Infra=2655114.59 | State: (0, 0, 0, 1, 1, 0, 1, 0, 0, 0)
-  Punto 2: Transp=1125497000.00, Infra=1959861.57 | State: (0, 0, 0, 0, 0, 0, 0, 1, 1, 0)
-  Punto 3: Transp=1019988000.00, Infra=2005964.93 | State: (1, 0, 0, 0, 0, 0, 0, 1, 0, 0)
-  Punto 4: Transp=1127553000.00, Infra=1959515.10 | State: (0, 0, 0, 0, 0, 0, 0, 1, 1, 0)
-  Punto 5: Transp=1018628000.00, Infra=2013015.99 | State: (1, 0, 0, 0, 0, 0, 0, 1, 0, 0)
-  Punto 6: Transp=998493000.00, Infra=2126446.84 | State: (1, 0, 0, 1, 0, 0, 0, 0, 0, 0)
+Frente de Pareto Final - 7 puntos:
+  Punto 1: Transp=996493000.00, Infra=2144575.13 | State: (1, 0, 0, 1, 0, 0, 0, 0, 0, 0)
+  Punto 2: Transp=986487000.00, Infra=2498936.58 | State: (1, 0, 0, 0, 1, 0, 0, 1, 0, 0)
+  Punto 3: Transp=1035416000.00, Infra=2011926.20 | State: (1, 0, 0, 0, 0, 0, 0, 1, 0, 0)
+  Punto 4: Transp=998493000.00, Infra=2129392.11 | State: (1, 0, 0, 1, 0, 0, 0, 0, 0, 0)
+  Punto 5: Transp=962027000.00, Infra=2626917.95 | State: (1, 0, 0, 1, 1, 0, 0, 0, 0, 0)
+  Punto 6: Transp=1018628000.00, Infra=2015541.21 | State: (1, 0, 0, 0, 0, 0, 0, 1, 0, 0)
+  Punto 7: Transp=995804000.00, Infra=2478004.74 | State: (1, 0, 0, 0, 1, 0, 0, 1, 0, 0)
 
 COMPARATIVA ESTADÍSTICA
-Calidad del TPLS vs Exacto : 96.23% (Cobertura del Hipervolumen)
-Aceleración de Tiempo      : El TPLS fue 0.25x más rápido que Epsilon
+Calidad del TPLS vs Exacto : 98.27% (Cobertura del Hipervolumen)
+Aceleración de Tiempo      : El TPLS fue 2.82x más rápido que Epsilon

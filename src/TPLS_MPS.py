@@ -64,7 +64,7 @@ def feasibleSolution(state, cdList, totalDemand):
     else:
         return False
 
-def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, maxWorkers, alphaValue, lexPoints):
+def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, solver, maxWorkers, alphaValue, lexPoints):
     exploredTabuPoints = []
     validTabuPoints = []
     tabuStatesToRemove = []
@@ -81,7 +81,7 @@ def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, max
         except ValueError:
             pass
 
-    tabuPoints, solverTime = calculateFitnessParallel(instance, tabuState, max_workers=maxWorkers, alphaValue=alphaValue, lexPoints=lexPoints)
+    tabuPoints, solverTime, solverStats = calculateFitnessParallel(instance, tabuState, solver, max_workers=maxWorkers, alphaValue=alphaValue, lexPoints=lexPoints)
 
     exploredTabuPoints.extend(tabuPoints)
     
@@ -94,40 +94,48 @@ def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, max
         if validTabuPoint:
             validTabuPoints.append(tabuPoint)
 
-    return validTabuPoints, solverTime
+    return validTabuPoints, solverTime, solverStats
 
-def hybridNeighborGeneration(nonDominatedPoints, instance, fixingSize, maxWorkers, alphaValue, lexPoints, tabu, movementSize):
-    totalDemand = getTotalDemand(instance)
+def selectOperator(operatorConfig):
+    methods = [item["method"] for item in operatorConfig]
+    probabilities = [item["prob"] for item in operatorConfig]
+    return random.choices(methods, weights=probabilities, k=1)[0]
+
+def hybridNeighborGeneration(nonDominatedPoints, instance, neighborhoodOperator, neighborAmount, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu, movementSize):
     neighborStates = []
     neighborMovements = []
     tabuNeighborhood = []
+    solverAddedStats = [0,0]
 
     for point in nonDominatedPoints:
         # 1. Rolling the dice: 50% chance for Relaxation, 50% for Standard Tabu
-        if random.random() > 1.5:
-            # RELAXATION PATH
-            relaxNeighbors, relaxMovements, aux = relaxNeighbor(instance, point, fixingSize, maxWorkers, alphaValue, lexPoints, tabu)
-            neighborStates.extend(relaxNeighbors)
-            neighborMovements.extend(relaxMovements)
-            tabuNeighborhood.extend(aux)
-        else:
-            # STANDARD TABU PATH
-            standardNeighbors, tabuNeighbors, standardMovements = getNeighbor([point], tabu, movementSize)
-            neighborStates.extend(standardNeighbors)
-            neighborMovements.extend(standardMovements)
-            tabuNeighborhood.extend(tabuNeighbors)
+        match selectOperator(neighborhoodOperator):
+            case "relaxed":
+                # RELAXATION PATH
+                relaxNeighbors, relaxMovements, aux, solverStats = relaxNeighbor(instance, point, neighborAmount, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu)
+                neighborStates.extend(relaxNeighbors)
+                neighborMovements.extend(relaxMovements)
+                tabuNeighborhood.extend(aux)
+                solverAddedStats[0] += solverStats[0]
+                solverAddedStats[1] += solverStats[1]
+            case "random":
+                # STANDARD TABU PATH
+                standardNeighbors, tabuNeighbors, standardMovements = getNeighbor(point, tabu, movementSize, neighborAmount)
+                neighborStates.extend(standardNeighbors)
+                neighborMovements.extend(standardMovements)
+                tabuNeighborhood.extend(tabuNeighbors)
     
-    return neighborStates, neighborMovements, tabuNeighborhood
+    return neighborStates, neighborMovements, tabuNeighborhood, solverAddedStats
 
 # TPLS_MPS.py
-def relaxNeighbor(instance, point, fixingSize, maxWorkers, alphaValue, lexPoints, tabu):
+def relaxNeighbor(instance, point, generateAmount, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu):
     neighborStates = []
     neighborMovements = []
     i = 0
     
-    while i < 10:
+    while i < generateAmount:
         # RELAXATION PATH
-        relaxResult, _ = parallelLinearRelaxation(instance, [point.state], fixingSize, max_workers=maxWorkers, alphaValue=alphaValue, 
+        relaxResult, _ , solverStats = parallelLinearRelaxation(instance, [point.state], solver, fixingSize, max_workers=maxWorkers, alphaValue=alphaValue, 
                                                     lexPoints=lexPoints, tabuList=tabu)
         if relaxResult:
             actualState = tuple(relaxResult[0])
@@ -138,56 +146,55 @@ def relaxNeighbor(instance, point, fixingSize, maxWorkers, alphaValue, lexPoints
         
         i += 1
 
-    return neighborStates, neighborMovements, []
+    return neighborStates, neighborMovements, [], solverStats
 
-def getNeighbor(nonDominatedPoints, tabu, movementSize):
+def getNeighbor(point, tabu, movementSize, generateAmount):
     neighborhood = []
     tabuNeighborhood = []
     neighborMovements = []
 
-    for point in nonDominatedPoints:
-        i = 0
-        openCds = []
-        closeCds = []
+    openCds = []
+    closeCds = []
+    i=0
 
-        for j in range(len(point.state)):
-            if point.state[j] == 1:
-                openCds.append(j)
-            else:
-                closeCds.append(j)
-        
-        while i < 10: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
-            changedState = list(point.state)
+    for j in range(len(point.state)):
+        if point.state[j] == 1:
+            openCds.append(j)
+        else:
+            closeCds.append(j)
+    
+    while i < generateAmount: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
+        changedState = list(point.state)
 
-            openAmount = random.randint(0, movementSize)
-            closeAmount = random.randint(0, movementSize)
+        openAmount = random.randint(0, movementSize)
+        closeAmount = random.randint(0, movementSize)
 
-            moves = {}
+        moves = {}
 
-            if len(closeCds) != 0:
-                for j in range(openAmount):
-                    cdToMove = random.choice(closeCds)
-                    changedState[cdToMove] = 1
-                    moves[cdToMove] = 1
+        if len(closeCds) != 0:
+            for j in range(openAmount):
+                cdToMove = random.choice(closeCds)
+                changedState[cdToMove] = 1
+                moves[cdToMove] = 1
 
-            for j in range(closeAmount):
-                cdToMove = random.choice(openCds)
-                changedState[cdToMove] = 0
-                moves[cdToMove] = 0
+        for j in range(closeAmount):
+            cdToMove = random.choice(openCds)
+            changedState[cdToMove] = 0
+            moves[cdToMove] = 0
 
-            #if not feasibleSolution(changedState, cdList, totalDemand):
-            #    continue
+        #if not feasibleSolution(changedState, cdList, totalDemand):
+        #    continue
 
-            if isTabu(moves, tabu):
-                changedState = tuple(changedState)
-                tabuNeighborhood.append(changedState)
-                neighborMovements.append(movements(changedState, moves))
-            else:
-                changedState = tuple(changedState)
-                neighborhood.append(changedState)
-                neighborMovements.append(movements(changedState, moves))
+        if isTabu(moves, tabu):
+            changedState = tuple(changedState)
+            tabuNeighborhood.append(changedState)
+            neighborMovements.append(movements(changedState, moves))
+        else:
+            changedState = tuple(changedState)
+            neighborhood.append(changedState)
+            neighborMovements.append(movements(changedState, moves))
 
-            i += 1
+        i += 1
             
     return neighborhood, tabuNeighborhood, neighborMovements
 
@@ -275,32 +282,39 @@ def removeDuplicatePoints(pointsList):
 
     return list(uniquePoints.values())
 
-def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, iterationAmount = 50, maxIterationsWithoutImprovement=5, movementSize = 3, tabuListSize = 20, tabuTenure = 5, alpha = 0.5, maxWorkers = 10):
+def MultiPointParetoSearch(initialState, instance, movementOperator, solver, lexPoints, iterationAmount = 50, maxIterationsWithoutImprovement=5, neighborAmount=10, fixingSize=0.8, movementSize = 3, tabuListSize = 20, tabuTenure = 5, alpha = 0.5, maxWorkers = 10):
     # 1. Inicialización y obtencion de parametros
     nonDominatedPoints = []
-    aux, solverTime = calculateFitnessParallel(instance, initialState, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
+    aux, solverTime, solverStats = calculateFitnessParallel(instance, initialState, solver, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
     nonDominatedPoints.extend(aux)
+
+    for point in nonDominatedPoints:
+        print(point.state)
 
     foundPoints = []
     foundPoints.extend(nonDominatedPoints)
 
     i = 0
     iterationwithoutImprovement = 0
+    totalSolverIterations = solverStats[0]
+    totalSolverNodes = solverStats[1]
 
     tabu = createTabuList(instance)
     addedTabus = []
 
     solverTime = 0
     
-    stopped = [False, None]
+    stopped = [False, iterationAmount]
 
     while i < iterationAmount: 
         # 2. Generar vecinos y remover duplicados
         
         print (f"Iteración {i+1}/{iterationAmount} - Generando vecinos...")
 
-        neighborhood, neighborMovements, tabuNeighborhood = hybridNeighborGeneration(nonDominatedPoints, instance, maxWorkers=maxWorkers,fixingSize=movementSize, 
+        neighborhood, neighborMovements, tabuNeighborhood, solverStats = hybridNeighborGeneration(nonDominatedPoints, instance, movementOperator, neighborAmount, solver=solver, maxWorkers=maxWorkers,fixingSize=fixingSize, 
                                                                                      alphaValue=alpha, lexPoints=lexPoints, tabu=tabu, movementSize=movementSize)
+        totalSolverIterations += solverStats[0]
+        totalSolverNodes += solverStats[1]
 
         neighborhood = removeDuplicateStates(neighborhood)
 
@@ -311,8 +325,10 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         # 3. Evaluar vecinos marcados como tabu con criterio de aspiración
         if len(tabuNeighborhood) > 0:
-            validTabuPoints, time = AspirationCriteria(instance, tabuNeighborhood, nonDominatedPoints, foundPoints, alphaValue=alpha, lexPoints=lexPoints, maxWorkers=maxWorkers)
+            validTabuPoints, time, solverStats = AspirationCriteria(instance, tabuNeighborhood, nonDominatedPoints, foundPoints, solver, alphaValue=alpha, lexPoints=lexPoints, maxWorkers=maxWorkers)
             solverTime += time
+            totalSolverIterations += solverStats[0]
+            totalSolverNodes += solverStats[1]
         else :
             validTabuPoints = []
 
@@ -321,9 +337,11 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
         print (f"Iteración {i+1}/{iterationAmount} - Vecinos encontrados: {len(notFound) + len(alreadyFound)}, Vecinos nuevos: {len(notFound)}")
 
         # 4. Evaluar vecinos no encontrados
-        paretoPoints, time  = calculateFitnessParallel(instance, notFound, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
+        paretoPoints, time, solverStats = calculateFitnessParallel(instance, notFound, solver, max_workers=maxWorkers, alphaValue=alpha, lexPoints=lexPoints)
             
         solverTime += time
+        totalSolverIterations += solverStats[0]
+        totalSolverNodes += solverStats[1]
 
         # Capture the states of the front BEFORE adding already known points
         previousFrontStates = set(p.state for p in nonDominatedPoints)
@@ -383,4 +401,4 @@ def MultiPointParetoSearch(initialState, instance, movementOperator, lexPoints, 
 
         i += 1
     
-    return nonDominatedPoints, solverTime, stopped
+    return nonDominatedPoints, solverTime, stopped, totalSolverIterations, totalSolverNodes
