@@ -1,11 +1,11 @@
 {
-  "numExperiments": 30,
+  "numExperiments": 15,
   "k": 1.28,
   "th": 1000,
   "plsParams": {
     "popSize": 5,
     "iterations": 50,
-    "maxIterationsWithoutImprovement": 10,
+    "maxIterationsWithoutImprovement": 5,
     "movementSize": 5,
     "tabuListSize": 5,
     "tabuTenure": 5,
@@ -24,11 +24,6 @@
     }
   },
   "instances": [
-    "20x10-0",
-    "20x10-1",
-    "20x10-3",
-    "20x10-5",
-    "30x15-0",
     "30x15-1",
     "30x15-5"
   ]

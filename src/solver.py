@@ -53,11 +53,13 @@ def solve_single_state(args):
     """Worker function: Solves one state in a private AMPL instance."""
     instance, state, alphaValue, lexPoints, solver = args
 
-    # Each process MUST have its own AMPL object
+    # Crear los workers
     worker_ampl = AMPL()
     worker_ampl.eval("reset;")
     worker_ampl.eval(modelo)
     worker_ampl.setOption("presolve", 0)
+
+    # Se settean segun el solver seleccionado
     worker_ampl.setOption("solver", solver)
     match solver:
         case "gurobi": 
@@ -71,8 +73,9 @@ def solve_single_state(args):
             raise ValueError("El solver seleccionado no es reconocido.")
     worker_ampl.setOutputHandler(SilentOutputHandler())
 
-    # Set data and fix Z variables [cite: 71]
     worker_ampl.eval(instance)
+
+    # Se dejan fijos los centros de los parametros que se pueden modificar
     for i, val in enumerate(state):
         worker_ampl.eval(f"fix Z[{i}] := {val};")
 
@@ -82,13 +85,16 @@ def solve_single_state(args):
         worker_ampl.param['maxInfra'] = lexPoints[1]
         worker_ampl.param['maxTransp'] = lexPoints[0]
 
+    # Se resuelve la solucion
     worker_ampl.solve()
-    
+
+    # Si no se puede resolver, se tiene un camino alterno
     if worker_ampl.getValue("solve_result") != "solved":
-        print(worker_ampl.getValue("solve_result"))
-        print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
+        #print(worker_ampl.getValue("solve_result"))
+        #print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
         return None, worker_ampl.getValue("solve_result"), 0, 0
 
+    # Se obtienen variables y metricas importantes para el reajuste
     cdsFixedCost = worker_ampl.getParameter("F").getValues().toDict()
     infra_cost = worker_ampl.get_variable("InfrastructureCost").value() 
     trans_cost = worker_ampl.get_variable("TransportCost").value()
@@ -98,10 +104,10 @@ def solve_single_state(args):
     solveMsg = worker_ampl.getValue("solve_message")
     iterations, branchNodes = getInfo(solveMsg, solver)
     
-    # Close session to free memory
+    # Se libera la memoria del trabajador
     worker_ampl.close()
     
-    # Use your existing rebalance logic
+    # Rebalanceo
     new_state, new_infra = rebalanceStates(list(state), cdsFixedCost, asignacion, infra_cost)
 
     return paretoPoint(new_infra, trans_cost, tuple(new_state), False), solveResult, iterations, branchNodes
@@ -110,25 +116,26 @@ def calculateFitnessParallel(instance, statesList, solver, max_workers=10, alpha
     """Parallel coordinator."""
     time0 = time()
     
-    # Prepare arguments for each worker
+    # Argumentos para el los trabajadores
     tasks = [(instance, state, alphaValue, lexPoints, solver) for state in statesList]
     
     paretoPoints = []
     solverStats = [0,0]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
+        # Administrador de hilos paralelos
         results = list(executor.map(solve_single_state, tasks))
 
         for result in results:
             if result[0] is None:
-                print("Warning: One of the states could not be solved.")
+                #print("Warning: One of the states could not be solved.")
+                continue
             else:
                 paretoPoints.append(result[0])
                 solverStats[0] += result[2]
                 solverStats[1] += result[3]
 
-        print(f"amount of states solved: {len(paretoPoints)} out of {len(results)}")
+        #print(f"amount of states solved: {len(paretoPoints)} out of {len(results)}")
     
     time1 = time()
     return paretoPoints, time1 - time0, solverStats
@@ -139,11 +146,12 @@ def fixAssignment(state):
 def solve_single_relax_state(args):
     instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList, solver = args
     
-    # Each process MUST have its own AMPL object
+    # Crear los workers
     worker_ampl = AMPL()
     worker_ampl.eval("reset;")
     worker_ampl.eval(modelo)
     worker_ampl.setOption("presolve", 0)
+    # Se settean segun el solver seleccionado
     worker_ampl.setOption("solver", solver)
     match solver:
         case "gurobi":
@@ -158,17 +166,16 @@ def solve_single_relax_state(args):
     worker_ampl.setOption("relax_integrality", 1)
     worker_ampl.setOutputHandler(SilentOutputHandler())
 
-    # Set data and fix Z variables [cite: 71]
     worker_ampl.eval(instanceContent)
 
-    # Identify which CDs are NOT tabu
-    # We only want to fix variables that are NOT currently restricted by Tabu
+    # Se separan los centros tabu de los no tabu
     nonTabuIndices = [i for i in range(len(state)) if tabuList.get(i) is None]
     
-    # Calculate how many to fix based on the available non-tabu population
+    # Se obtiene la cantidad de indices a settear
     kToFix = min(len(nonTabuIndices), int(len(state) * fixingSize))
     indicesToFix = random.sample(nonTabuIndices, k=kToFix)
-
+    
+    # Se settean los indices seleccionados y otros parametros
     for i in indicesToFix:
         worker_ampl.eval(f"fix Z[{i}] := {state[i]};")
 
@@ -178,24 +185,27 @@ def solve_single_relax_state(args):
         worker_ampl.param['maxInfra'] = lexPoints[1]
         worker_ampl.param['maxTransp'] = lexPoints[0]
 
+    # Se resuelve la solucion 
     worker_ampl.solve()
     
+    # Si no se puede resolver, se tiene un camino alterno
     if worker_ampl.getValue("solve_result") != "solved":
-        print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
+        #print(f"Warning: State {state} could not be solved. Result: {worker_ampl.getValue('solve_result')}")
         return None, worker_ampl.getValue("solve_result"), 0, 0
 
+    # Se obtienen variables y metricas importantes para el reajuste
     asignacionZ = worker_ampl.get_variable("Z").get_values().toList()
     solveResult = worker_ampl.getValue("solve_result")
     
-    print(asignacionZ)
+    #print(asignacionZ)
 
     solveMsg = worker_ampl.getValue("solve_message")
     iterations, branchNodes = getInfo(solveMsg, solver)
 
-    # Close session to free memory
+    # Se libera la memoria del trabajador
     worker_ampl.close()
     
-    # Use your existing rebalance logic
+    # Rebalanceo
     fixState = fixAssignment(asignacionZ)
 
     return  tuple(fixState), solveResult, iterations, branchNodes
@@ -204,24 +214,25 @@ def parallelLinearRelaxation(instanceContent, statesList, solver, fixingSize, ma
     """Parallel coordinator."""
     time0 = time()
     
-    # Prepare arguments for each worker
+    # Argumentos para el los trabajadores
     tasks = [(instanceContent, state, fixingSize, alphaValue, lexPoints, tabuList, solver) for state in statesList]
     
     relaxStates = []
     solverStats = [0,0]
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map tasks to workers
+        # Administrador de hilos paralelos
         results = list(executor.map(solve_single_relax_state, tasks))
 
         for result in results:
             if result[0] is None:
-                print("Warning: One of the states could not be solved.")
+                #print("Warning: One of the states could not be solved.")
+                continue
             else:
                 relaxStates.append(result[0])
                 solverStats[0] += result[2]
                 solverStats[1] += result[3]
 
-        print(f"amount of states solved: {len(relaxStates)} out of {len(results)}")
+        #print(f"amount of states solved: {len(relaxStates)} out of {len(results)}")
     
     time1 = time()
     return relaxStates, time1 - time0, solverStats
@@ -229,7 +240,7 @@ def parallelLinearRelaxation(instanceContent, statesList, solver, fixingSize, ma
 def getInfo(solveMsg, solver = "knitro"):
     iterations = 0
     branchNodes = 0
-    print(f"solve MSG: {solveMsg}")
+    #print(f"solve MSG: {solveMsg}")
     if solveMsg:
         if solver == "gurobi":
             # Extracción para Gurobi
@@ -249,6 +260,6 @@ def getInfo(solveMsg, solver = "knitro"):
             matchNodes = re.search(r'(\d+)\s+nodes', solveMsg)
             if matchNodes:
                 branchNodes = int(matchNodes.group(1))
-    print(f"Iterations: {iterations}")
-    print(f"Branching nodes: {branchNodes}")
+    #print(f"Iterations: {iterations}")
+    #print(f"Branching nodes: {branchNodes}")
     return iterations, branchNodes

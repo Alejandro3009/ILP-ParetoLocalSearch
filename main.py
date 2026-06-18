@@ -27,7 +27,9 @@ if __name__ == "__main__":
 
     for instanceName in instancesList: 
         # 1. Cargar las intancias (ya sea desde el json o de las urls)
+        print(f"###################################")
         print(f"Ejecución de la instancia: {instanceName}")
+        print(f"###################################")
 
         currentInstance = loadDatInstance(instanceName)
             
@@ -54,7 +56,9 @@ if __name__ == "__main__":
         }
 
         for experiment in range(numExperiments):
+            print(f"##############################")
             print(f"Experimento {experiment+1}/{numExperiments} con alpha={plsParams['alpha']}")
+            print(f"##############################")
 
             match plsParams['operators']['searchMethod']:
 
@@ -99,7 +103,7 @@ if __name__ == "__main__":
             # 5. Recolecion de data
             # 5.1 Obtener metricas de medicion
             hvValue = calcularHipervolumen(finalParetoFront, previousResults['transMin'], previousResults['transMax'], previousResults['infraMin'], previousResults['infraMax'])
-            igdValue = invertedGenerationalDistance(previousResults['paretoX'], previousResults['paretoY'], finalParetoFront, [previousResults['infraMin'], previousResults['infraMax']], [previousResults['transMin'], previousResults['transMax']])
+            igdValue = invertedGenerationalDistance(previousResults['paretoY'], previousResults['paretoX'], finalParetoFront, [previousResults['infraMin'], previousResults['infraMax']], [previousResults['transMin'], previousResults['transMax']])
             spacingValue = spacing(finalParetoFront)
             
             # 5.2 Registrar experimento
@@ -112,11 +116,13 @@ if __name__ == "__main__":
             experimentRegistry['points'].append(finalParetoFront)
             experimentRegistry['executedIterations'].append(stopped[1])
 
+        # 5.3 Procesar los datos
         tplsData = getReportData(experimentRegistry)
         tplsData['usedStrategy'] = plsParams['operators']['searchMethod']
         tplsData['amountOfExperiments'] = numExperiments
         tplsData['maxIterations'] = plsParams['iterations']
 
+        # 5.4 Crear el reporte
         exportData(instanceName, currentInstance, numCds, previousResults, tplsData)
 
         # 6. Plotting y visualización de los resultados

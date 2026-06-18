@@ -158,9 +158,9 @@ def getReportData(experimentRegistry):
 
     tplsData['maxHyperVolume'] = max(experimentRegistry['hypervolume'])
     tplsData['avgHyperVolume'] = statistics.mean(experimentRegistry['hypervolume'])
-    tplsData['maxInvertedGenerationalDistance'] = max(experimentRegistry['invertedGenerationalDistance'])
+    tplsData['minInvertedGenerationalDistance'] = min(experimentRegistry['invertedGenerationalDistance'])
     tplsData['avgInvertedGenerationalDistance'] = statistics.mean(experimentRegistry['invertedGenerationalDistance'])
-    tplsData['maxSpacing'] = max(experimentRegistry['spacing'])
+    tplsData['minSpacing'] = min(experimentRegistry['spacing'])
     tplsData['avgSpacing'] = statistics.mean(experimentRegistry['spacing'])
 
     tplsData['avgSolverIterations'] = round(statistics.mean(experimentRegistry['amountCallsSolver']), 0)
@@ -204,7 +204,7 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, tplsData):
         report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
 
     report.append("\nRESULTADOS HEURÍSTICA (TPLS)")
-    report.append(f"** El TPLS durante la ejecucion de los {tplsData['amountOfExperiments']}, en promedio tardo en ejecutarse {tplsData['avgIterations']} de {tplsData['maxIterations']} **")
+    report.append(f"** El TPLS durante la ejecucion de los {tplsData['amountOfExperiments']} experimentos, en promedio tardo en ejecutarse {tplsData['avgIterations']} de {tplsData['maxIterations']} **")
 
     report.append(f"Tiempo de ejecución :   {tplsData['avgTime']:.4f} segundos")
     
