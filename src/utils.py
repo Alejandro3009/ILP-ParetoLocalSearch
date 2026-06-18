@@ -228,6 +228,12 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, tplsData):
             aceleracion = epsilonData['time'] / tplsData['bestFrontTime'] 
             report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
 
+    ahorro = (1 - (tplsData['avgSolverIterations'] / epsilonData['solverIterations'])) * 100
+    report.append(f"El TPLS uso en promedio un {ahorro}% de las iteraciones en comparacion al epsilon")
+
+    ahorro = (1 - (tplsData['avgSolverNodes'] / epsilonData['solverbranchingNodes'])) * 100
+    report.append(f"El TPLS uso en promedio un {ahorro}% de los nodos en comparacion al epsilon")
+
     fileName = f"Reporte_{instanceName}_using_{tplsData['usedStrategy']}.txt" 
     with open(fileName, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
