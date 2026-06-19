@@ -6,12 +6,11 @@ from time import time
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.initialSolution import generateInitialSolution
-from src.utils import loadDatInstance, calcularHipervolumen, invertedGenerationalDistance, spacing,exportData, loadConfig, parseNumCds, getReportData
+from src.utils import loadDatInstance, loadEpsilonResults, calcularHipervolumen, invertedGenerationalDistance, spacing, exportData, loadConfig, parseNumCds, getReportData
 from src.solver import calculateFitnessParallel
 from src.plotting import plotParetoFront
 from src.TPLS_MPS import MultiPointParetoSearch
 from src.TPLS_OPS import onePointParetoSearch
-from lexsrc.utils import loadEpsilonResults
 
 #Inicialización de variables globales y constantes
 license_UIDD = "8b9ba85b-4781-4c85-94c3-2b6fcb16b02e"
