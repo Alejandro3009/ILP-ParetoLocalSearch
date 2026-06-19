@@ -1,0 +1,94 @@
+==================================================
+         REPORTE DE EJECUCIÓN MULTIOBJETIVO       
+==================================================
+URL Instancia Evaluada: 20x10-3
+Tamaño de Instancia: 10 CDs
+
+CARACTERIZACIÓN DE LA INSTANCIA
+--- Análisis de la Instancia ---
+Costos Fijos (F):
+  - Promedio: 19802.70
+  - Desv. Estándar: 4128.47
+  - Coef. Variación (CV): 20.85%
+Capacidades (Cap):
+  - Promedio: 1009.30
+  - Desv. Estándar: 206.62
+  - Coef. Variación (CV): 20.47%
+Demandas (d):
+  - Promedio: 101.60
+  - Desv. Estándar: 30.72
+  - Coef. Variación (CV): 30.23%
+Costos de Transporte (TC):
+  - Promedio: 78.55
+  - Desv. Estándar: 33.69
+  - Coef. Variación (CV): 42.89%
+
+Análisis de Tensión:
+  - Demanda Total de la Red: 2032.00
+  - Capacidad Total de CDs : 10093.00
+  - Ratio (Cap/Dem)        : 4.97x (Holgada)
+--------------------------------
+
+RESULTADOS EPSILON-CONSTRAINT
+Tiempo de ejecución :         69.2281 segundos
+Hipervolumen        :         0.7751
+Cantidad de iteraciones:      3361826
+Cantidad de branching Nodes:  458032
+Puntos Lexicográficos (Extremos del Frente):
+  - Nadir: Transp=1260880000.00, Infra=2929909.82
+  - Transp. Mín   : Transp=1128159000.00, Infra=2929909.82
+  - Infra. Mín    : Transp=1260880000.00, Infra=2092589.59
+
+Puntos del Frente (18 steps):
+  Punto 1: Transp=1128159000.00, Infra=2929909.82
+  Punto 2: Transp=1132231000.00, Infra=2729547.73
+  Punto 3: Transp=1135079000.00, Infra=2642004.13
+  Punto 4: Transp=1142801000.00, Infra=2617521.03
+  Punto 5: Transp=1145270000.00, Infra=2557767.50
+  Punto 6: Transp=1148633000.00, Infra=2273609.94
+  Punto 7: Transp=1148633000.00, Infra=2371696.33
+  Punto 8: Transp=1148633000.00, Infra=2305465.97
+  Punto 9: Transp=1155756000.00, Infra=2270006.26
+  Punto 10: Transp=1171020000.00, Infra=2247268.85
+  Punto 11: Transp=1186155000.00, Infra=2244754.91
+  Punto 12: Transp=1201443000.00, Infra=2207705.96
+  Punto 13: Transp=1208486000.00, Infra=2185625.17
+  Punto 14: Transp=1216278000.00, Infra=2149997.53
+  Punto 15: Transp=1228201000.00, Infra=2140468.71
+  Punto 16: Transp=1234979000.00, Infra=2140026.07
+  Punto 17: Transp=1260880000.00, Infra=2092589.59
+  Punto 18: Transp=1260880000.00, Infra=2092546.46
+
+RESULTADOS HEURÍSTICA (TPLS)
+** El TPLS durante la ejecucion de los 30 experimentos, en promedio tardo en ejecutarse 13.0 de 50 **
+Tiempo de ejecución :   509.6436 segundos
+Hipervolumen: Promedio = 0.7763 - Mejor = 0.8336
+Distancia Generacional Invertida: Promedio = 1406.9851 - Mejor = 1407.0239
+Espaciado: Promedio = 0.0770 - Mejor = 0.2194
+Cantidad de iteraciones del solver: 119953.0
+Cantidad de branching Nodes:        152011.0
+
+Frente de Pareto Final - 17 puntos:
+  Punto 1: Transp=1219405000.00, Infra=2148817.80 | State: (0, 1, 0, 0, 0, 1, 0, 0, 0, 0)
+  Punto 2: Transp=1201126000.00, Infra=2221108.23 | State: (0, 0, 0, 0, 0, 1, 1, 0, 0, 0)
+  Punto 3: Transp=1143650000.00, Infra=2639180.35 | State: (0, 0, 1, 1, 0, 0, 0, 0, 0, 1)
+  Punto 4: Transp=1199759000.00, Infra=2221671.42 | State: (0, 0, 0, 0, 0, 1, 1, 0, 0, 0)
+  Punto 5: Transp=1209663000.00, Infra=2184274.10 | State: (0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+  Punto 6: Transp=1165827000.00, Infra=2256573.19 | State: (0, 0, 1, 0, 0, 1, 0, 0, 0, 0)
+  Punto 7: Transp=1136584000.00, Infra=2643083.03 | State: (0, 0, 1, 1, 0, 1, 0, 0, 0, 0)
+  Punto 8: Transp=1149182000.00, Infra=2275655.91 | State: (0, 0, 0, 1, 0, 1, 0, 0, 0, 0)
+  Punto 9: Transp=1134889000.00, Infra=2690678.66 | State: (0, 0, 1, 1, 0, 0, 0, 0, 1, 0)
+  Punto 10: Transp=1186890000.00, Infra=2248113.22 | State: (0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+  Punto 11: Transp=1270810000.00, Infra=2118233.92 | State: (0, 1, 0, 0, 0, 0, 0, 0, 0, 1)
+  Punto 12: Transp=1143381000.00, Infra=2641667.55 | State: (0, 0, 1, 1, 0, 0, 0, 0, 0, 1)
+  Punto 13: Transp=1148633000.00, Infra=2277663.83 | State: (0, 0, 0, 1, 0, 1, 0, 0, 0, 0)
+  Punto 14: Transp=1148067000.00, Infra=2568161.65 | State: (0, 0, 1, 1, 0, 1, 0, 0, 0, 0)
+  Punto 15: Transp=1188195000.00, Infra=2244460.80 | State: (0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+  Punto 16: Transp=1186700000.00, Infra=2248883.60 | State: (0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+  Punto 17: Transp=1146497000.00, Infra=2620382.66 | State: (0, 1, 1, 1, 0, 0, 0, 0, 0, 0)
+
+COMPARATIVA ESTADÍSTICA
+Calidad del TPLS vs Exacto : 107.54% (Cobertura del Hipervolumen)
+Aceleración de Tiempo      : El TPLS fue 0.18x más rápido que Epsilon
+El TPLS uso en promedio un 96.43190932546777% de las iteraciones en comparacion al epsilon
+El TPLS uso en promedio un 66.8121441296678% de los nodos en comparacion al epsilon

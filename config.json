@@ -1,5 +1,5 @@
 {
-  "numExperiments": 15,
+  "numExperiments": 1,
   "k": 1.28,
   "th": 1000,
   "plsParams": {
@@ -24,7 +24,9 @@
     }
   },
   "instances": [
-    "30x15-1",
-    "30x15-5"
+    "20x10-0",
+    "20x10-1",
+    "20x10-3",
+    "20x10-5"
   ]
 }

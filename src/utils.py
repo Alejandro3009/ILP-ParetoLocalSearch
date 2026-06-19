@@ -7,29 +7,6 @@ import math
 import statistics
 from src.model import modelo
 
-def printSummary(cds, clients, K, TH):
-    print("\n" + "="*55)
-    print("              DATA INITIALIZATION SUMMARY")
-    print("="*55)
-    print(f"GLOBAL PARAMS: K = {K}, TH = {TH}")
-    print(f"OBJECT COUNTS: {len(cds)} CDs, {len(clients)} Clients")
-
-    if clients:
-        cl = clients[0]
-        tc_sample = cl.transportCost[:5]
-        print(f"\nSAMPLE CLIENT (ID 0):")
-        print(f"  - Demand: {cl.demand} | Variance: {cl.variance}")
-        print(f"  - TC Array Sample (CDs 0-4): {tc_sample}")
-
-        if any(cost > 0 for cost in cl.transportCost):
-            min_c = min(cl.transportCost)
-            best_cd = cl.transportCost.index(min_c)
-            print(f"  - Result: SUCCESS! Triplets parsed correctly.")
-            print(f"  - Client 0 Best CD: {best_cd} (Cost: {min_c})")
-        else:
-            print("  - WARNING: TC values are still 0.0. Triplets not found.")
-    print("="*55 + "\n")
-
 def getStateTuple(cdList):
     aux = list(c.open for c in cdList)
     for i in range(len(aux)):
@@ -39,6 +16,7 @@ def getStateTuple(cdList):
             aux[i] = 0
     return tuple(aux)
     
+# Funcion para obtener la demanda total de todos los clientes
 def getTotalDemand(instanceContent):
     tempAmpl = AMPL()
     tempAmpl.eval("reset;")
@@ -57,6 +35,7 @@ def getTotalDemand(instanceContent):
         totalVariance += variance[i]
     return totalDemand + totalVariance
 
+#Funcion para obtener el numero de cds
 def parseNumCds(ampl_data):
     match = re.search(r'set\s+I\s*:=\s*(.*?);', ampl_data, re.DOTALL | re.IGNORECASE)
     if match:
@@ -65,15 +44,19 @@ def parseNumCds(ampl_data):
         return len(cdList_ids)
     return 0
 
+# Funcion para calcular el hyper volumen
 def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
+    # Se obtienen los puntos de la heuristica
     pointValues = [(p.Transport, p.Infrastructure) for p in puntos]
 
     if len(puntos) == 0:
         return 0.0
 
+    # Se crean los rangos para la normalizacion
     rangoX = maxX - minX if maxX > minX else 1.0
     rangoY = maxY - minY if maxY > minY else 1.0
 
+    #Se normalizan los puntos
     puntos_norm = []
     for p in pointValues:
         nx = (p[0] - minX) / rangoX
@@ -87,6 +70,7 @@ def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
     refX_norm = 1.0 
     refY_norm = 1.0
 
+    # Se obtiene el hipervolumen
     for i in range(len(sortedPoints)):
         xx = sortedPoints[i][0]
         yy = sortedPoints[i][1]
@@ -106,8 +90,8 @@ def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
 
     return hipervolumen
 
+# Funcion de reporte de la instancia
 def characterizeInstance(instanceContent):
-    """Calculates statistics for the instance to match the report format."""
     tempAmpl = AMPL()
     tempAmpl.eval("reset;")
     tempAmpl.eval(modelo)
@@ -152,6 +136,7 @@ def characterizeInstance(instanceContent):
     ]
     return "\n".join(report)
 
+# Funcion para generar el reporte final
 def getReportData(experimentRegistry):
     tplsData = {}
 
@@ -208,8 +193,8 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, tplsData):
     report.append(f"Tiempo de ejecución :   {tplsData['avgTime']:.4f} segundos")
     
     report.append(f"Hipervolumen: Promedio = {tplsData['avgHyperVolume']:.4f} - Mejor = {tplsData['maxHyperVolume']:.4f}")
-    report.append(f"Distancia Generacional Invertida: Promedio = {tplsData['avgInvertedGenerationalDistance']:.4f} - Mejor = {tplsData['maxInvertedGenerationalDistance']:.4f}")
-    report.append(f"Espaciado: Promedio = {tplsData['avgSpacing']:.4f} - Mejor = {tplsData['maxSpacing']:.4f}")
+    report.append(f"Distancia Generacional Invertida: Promedio = {tplsData['avgInvertedGenerationalDistance']:.4f} - Mejor = {tplsData['minInvertedGenerationalDistance']:.4f}")
+    report.append(f"Espaciado: Promedio = {tplsData['avgSpacing']:.4f} - Mejor = {tplsData['minSpacing']:.4f}")
 
     report.append(f"Cantidad de iteraciones del solver: {tplsData['avgSolverIterations']}")
     report.append(f"Cantidad de branching Nodes:        {tplsData['avgSolverNodes']}")
@@ -238,6 +223,7 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, tplsData):
         f.write("\n".join(report))
     print(f"*** Reporte guardado en {fileName} ***") 
 
+# Funcion para cargar la instacia
 def loadDatInstance(name):
 
     if not name.endswith(".dat"):
@@ -259,6 +245,7 @@ def loadDatInstance(name):
         print(f"Error inesperado al leer la instancia: {errorObject}")
         return None
 
+# Funcion para cargar la configuracion
 def loadConfig(configPath):
     with open(configPath, 'r', encoding='utf-8') as file:
         return json.load(file)

@@ -60,30 +60,32 @@ Puntos del Frente (18 steps):
   Punto 18: Transp=1258278000.00, Infra=2032895.16
 
 RESULTADOS HEURÍSTICA (TPLS)
-** El TPLS durante la ejecucion de los 1 experimentos, en promedio tardo en ejecutarse 7 de 50 **
-Tiempo de ejecución :   162.0190 segundos
-Hipervolumen: Promedio = 0.8778 - Mejor = 0.8778
-Distancia Generacional Invertida: Promedio = 0.1573 - Mejor = 0.1573
-Espaciado: Promedio = 0.0464 - Mejor = 0.0464
-Cantidad de iteraciones del solver: 35522
-Cantidad de branching Nodes:        40947
+** El TPLS durante la ejecucion de los 30 experimentos, en promedio tardo en ejecutarse 10.0 de 50 **
+Tiempo de ejecución :   222.2716 segundos
+Hipervolumen: Promedio = 0.8752 - Mejor = 0.8844
+Distancia Generacional Invertida: Promedio = 973.5740 - Mejor = 973.5960
+Espaciado: Promedio = 0.0838 - Mejor = 0.1582
+Cantidad de iteraciones del solver: 36150.0
+Cantidad de branching Nodes:        41212.0
 
-Frente de Pareto Final - 12 puntos:
-  Punto 1: Transp=1124800000.00, Infra=2142325.06 | State: (0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
-  Punto 2: Transp=1115639000.00, Infra=2526837.08 | State: (0, 1, 0, 0, 0, 1, 0, 0, 1, 0)
-  Punto 3: Transp=1180492000.00, Infra=2045330.96 | State: (0, 1, 0, 0, 0, 0, 0, 1, 0, 0)
-  Punto 4: Transp=1141718000.00, Infra=2102940.75 | State: (0, 0, 0, 0, 0, 0, 0, 1, 1, 0)
-  Punto 5: Transp=1154056000.00, Infra=2078327.71 | State: (0, 1, 0, 1, 0, 0, 0, 0, 0, 0)
-  Punto 6: Transp=1122516000.00, Infra=2143842.13 | State: (0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
-  Punto 7: Transp=1152194000.00, Infra=2083883.75 | State: (0, 1, 0, 1, 0, 0, 0, 0, 0, 0)
-  Punto 8: Transp=1120603000.00, Infra=2146640.41 | State: (0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
-  Punto 9: Transp=1172049000.00, Infra=2045863.83 | State: (0, 1, 0, 0, 0, 0, 0, 1, 0, 0)
-  Punto 10: Transp=1106926000.00, Infra=2574240.52 | State: (0, 1, 0, 0, 0, 1, 0, 0, 1, 0)
-  Punto 11: Transp=1107055000.00, Infra=2539707.81 | State: (0, 1, 0, 0, 0, 1, 0, 0, 1, 0)
-  Punto 12: Transp=1113271000.00, Infra=2533679.14 | State: (0, 1, 0, 0, 0, 1, 0, 0, 1, 0)
+Frente de Pareto Final - 14 puntos:
+  Punto 1: Transp=1154056000.00, Infra=2076503.43 | State: (0, 1, 0, 1, 0, 0, 0, 0, 0, 0)
+  Punto 2: Transp=1180492000.00, Infra=2045330.96 | State: (0, 1, 0, 0, 0, 0, 0, 1, 0, 0)
+  Punto 3: Transp=1113541000.00, Infra=2476525.78 | State: (0, 1, 0, 1, 0, 0, 0, 0, 1, 0)
+  Punto 4: Transp=1141718000.00, Infra=2102660.23 | State: (0, 0, 0, 0, 0, 0, 0, 1, 1, 0)
+  Punto 5: Transp=1172049000.00, Infra=2045863.83 | State: (0, 1, 0, 0, 0, 0, 0, 1, 0, 0)
+  Punto 6: Transp=1147974000.00, Infra=2101512.34 | State: (0, 0, 0, 0, 0, 0, 0, 1, 1, 0)
+  Punto 7: Transp=1105566000.00, Infra=2608868.81 | State: (0, 0, 0, 0, 0, 1, 1, 0, 1, 0)
+  Punto 8: Transp=1107055000.00, Infra=2542820.89 | State: (0, 1, 0, 0, 0, 1, 0, 0, 1, 0)
+  Punto 9: Transp=1123990000.00, Infra=2140244.76 | State: (0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
+  Punto 10: Transp=1122516000.00, Infra=2143842.13 | State: (0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
+  Punto 11: Transp=1112459000.00, Infra=2530851.55 | State: (0, 1, 0, 0, 0, 1, 0, 0, 1, 0)
+  Punto 12: Transp=1147491000.00, Infra=2102405.12 | State: (0, 0, 0, 0, 0, 0, 0, 1, 1, 0)
+  Punto 13: Transp=1152194000.00, Infra=2083216.30 | State: (0, 1, 0, 1, 0, 0, 0, 0, 0, 0)
+  Punto 14: Transp=1120603000.00, Infra=2145719.55 | State: (0, 0, 0, 1, 0, 0, 0, 0, 1, 0)
 
 COMPARATIVA ESTADÍSTICA
-Calidad del TPLS vs Exacto : 98.26% (Cobertura del Hipervolumen)
-Aceleración de Tiempo      : El TPLS fue 0.37x más rápido que Epsilon
-El TPLS uso en promedio un 97.66406211982319% de las iteraciones en comparacion al epsilon
-El TPLS uso en promedio un 90.71003661806945% de los nodos en comparacion al epsilon
+Calidad del TPLS vs Exacto : 99.01% (Cobertura del Hipervolumen)
+Aceleración de Tiempo      : El TPLS fue 0.23x más rápido que Epsilon
+El TPLS uso en promedio un 97.62276464252035% de las iteraciones en comparacion al epsilon
+El TPLS uso en promedio un 90.64991401333134% de los nodos en comparacion al epsilon
