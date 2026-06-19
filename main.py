@@ -43,7 +43,7 @@ if __name__ == "__main__":
         initialState = generateInitialSolution(plsParams['operators']["initialization"], currentInstance)
         initialPoints, _, _ = calculateFitnessParallel(currentInstance, initialState, plsParams['solver'], max_workers=plsParams['maxWorkers'], alphaValue=plsParams['alpha'], lexPoints=[previousResults['transMax'], previousResults['infraMax']])
         print (f"solucion inicial: {initialState}")
-        # 4. Ejecutar la busqueda local
+
         experimentRegistry = {
             'executionTime': [],
             'amountCallsSolver': [],
@@ -59,7 +59,7 @@ if __name__ == "__main__":
             print(f"##############################")
             print(f"Experimento {experiment+1}/{numExperiments} con alpha={plsParams['alpha']}")
             print(f"##############################")
-
+            # 4. Ejecutar la busqueda local
             match plsParams['operators']['searchMethod']:
 
                 case "steepestDescent":

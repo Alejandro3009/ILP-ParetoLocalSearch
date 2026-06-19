@@ -1,9 +1,9 @@
 import random
-import copy
 from amplpy import AMPL
 from src.solver import calculateFitnessParallel, parallelLinearRelaxation
 from src.model import movements, modelo
 
+#Funciones de la lista tabu
 def createTabuList(instanceContent):
     tempAmpl = AMPL()
     tempAmpl.eval("reset;")
@@ -51,6 +51,7 @@ def removeLastTabu(amountToRemove, tabuList, addedTabus):
             break
     return tabuList, addedTabus
 
+# Funcion de factibilidad manual, solo se usa en la generacion normal
 def feasibleSolution(state, cdList, totalDemand):
     totalCapacity = 0
     for i in range(len(state)):
@@ -67,6 +68,7 @@ def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, max
     validTabuPoints = []
     tabuStatesToRemove = []
 
+    # Se ve Si algun estado tabu ya fue resuelto antes
     for state in tabuState:
             for point in foundPoints:
                 if point.state == state:
@@ -83,6 +85,7 @@ def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, max
 
     exploredTabuPoints.extend(tabuPoints)
     
+    # Solo pasan los puntos tabu que dominen a todo el frente anteriormente encontrado.
     for tabuPoint in exploredTabuPoints:
         validTabuPoint = True
         for point in nonDominatedPoints:
@@ -94,6 +97,7 @@ def AspirationCriteria(instance, tabuState, nonDominatedPoints, foundPoints, max
 
     return validTabuPoints, solverTime
 
+#Selecionador de generadores ponderados
 def selectOperator(operatorConfig):
     methods = [item["method"] for item in operatorConfig]
     probabilities = [item["prob"] for item in operatorConfig]
@@ -105,18 +109,18 @@ def hybridNeighborGeneration(point, instance, neighborhoodOperator, neighborAmou
     tabuNeighborhood = []
     solverAddedStats = [0,0]
 
-    # 1. Rolling the dice: 50% chance for Relaxation, 50% for Standard Tabu
+    # Se selecciona el tipo de generacion que se usara para el punto
     match selectOperator(neighborhoodOperator):
         case "relaxed":
-            # RELAXATION PATH
-            relaxNeighbors, relaxMovements, aux, solverStats = relaxNeighbor(instance, point, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu)
+            # Relajacion lineal
+            relaxNeighbors, relaxMovements, aux, solverStats = relaxNeighbor(instance, point, neighborAmount, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu)
             neighborStates.extend(relaxNeighbors)
             neighborMovements.extend(relaxMovements)
             tabuNeighborhood.extend(aux)
             solverAddedStats[0] += solverStats[0]
             solverAddedStats[1] += solverStats[1]
         case "random":
-            # STANDARD TABU PATH
+            # Generacion aleatoria
             standardNeighbors, tabuNeighbors, standardMovements = getNeighbor(point, tabu, movementSize, neighborAmount)
             neighborStates.extend(standardNeighbors)
             neighborMovements.extend(standardMovements)
@@ -124,18 +128,16 @@ def hybridNeighborGeneration(point, instance, neighborhoodOperator, neighborAmou
     
     return neighborStates, neighborMovements, tabuNeighborhood, solverAddedStats
 
-def relaxNeighbor(instance, point, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu):
+def relaxNeighbor(instance, point, generateAmount, solver, fixingSize, maxWorkers, alphaValue, lexPoints, tabu):
     neighborStates = []
     neighborMovements = []
     i = 0
 
     while i < 10:
-        # RELAXATION PATH
         relaxResult, _, solverStats = parallelLinearRelaxation(instance, [point.state], solver, fixingSize, max_workers=maxWorkers, alphaValue=alphaValue, 
                                                     lexPoints=lexPoints, tabuList=tabu)
         if relaxResult:
             actualState = tuple(relaxResult[0])
-            # We record the movement even for relaxation to update Tabu frequency later
             moves = {i: actualState[i] for i in range(len(actualState)) if actualState[i] != point.state[i]}
             neighborStates.append(actualState)
             neighborMovements.append(movements(actualState, moves))
@@ -152,13 +154,14 @@ def getNeighbor(point, tabu, movementSize, generateAmount):
     openCds = []
     closeCds = []
 
+    # Obtener lista de centros abiertos y cerrados
     for j in range(len(point.state)):
         if point.state[j] == 1:
             openCds.append(j)
         else:
             closeCds.append(j)
         
-    while i < 30: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
+    while i < generateAmount: # Limitar el número de vecinos a evaluar por cada punto del frente de Pareto
         changedState = list(point.state)
 
         openAmount = random.randint(0, movementSize)
@@ -177,6 +180,9 @@ def getNeighbor(point, tabu, movementSize, generateAmount):
             changedState[cdToMove] = 0
             moves[cdToMove] = 0
 
+        #if not feasibleSolution(changedState, cdList, totalDemand):
+        #    continue
+
         if isTabu(moves, tabu):
             changedState = tuple(changedState)
             tabuNeighborhood.append(changedState)
@@ -190,6 +196,7 @@ def getNeighbor(point, tabu, movementSize, generateAmount):
             
     return neighborhood, tabuNeighborhood, neighborMovements
 
+# Se verifica si un punto ya fue encontrado en base a comparar los estados nuevos con los viejos.
 def checkIfFound(neighborState, exploredPoints):
     alreadyFound = []
     toRemove = []
@@ -254,6 +261,8 @@ def checkDominance(pointsList, nonDominatedPoints, neighborMovements):
 
     return pointsList, tabuRate
 
+# Para remover duplicas se crean diccionarios que guardan los puntos y utiliza como llave su estado
+# Si un estado ya fue guardado entonces, se descarta el punto que fue evaluado.
 def removeDuplicateStates(statesList):
     uniquePoints = {}
     
@@ -331,27 +340,27 @@ def onePointParetoSearch(initialState, instance, neiborhoodOperator, solver, lex
         totalSolverIterations += solverStats[0]
         totalSolverNodes += solverStats[1]
         
-        # Capture the states of the front BEFORE adding already known points
+        # Se guarda el frente previo a su actualizacion.
         previousFrontStates = set(p.state for p in nonDominatedPoints)
 
-        # Only consider points that were NOT previously found in this specific search
         newlyEvaluatedPoints = []
-        newlyEvaluatedPoints.extend(paretoPoints) # These come from 'notFound'
+        newlyEvaluatedPoints.extend(paretoPoints) # Estos son de los puntos no encontrados
         if len(validTabuPoints) > 0:
             newlyEvaluatedPoints.extend(validTabuPoints)
 
-        # Now update the front using EVERYTHING (new + old) to maintain correctness
+        # Se añaden a al check de dominancia los puntos nuevos y viejos.
         allPotentialPoints = newlyEvaluatedPoints + alreadyFound
 
         allPotentialPoints = removeDuplicatePoints(allPotentialPoints)
 
+        # 5. Check de dominancia.
         nonDominatedPoints, tabuRate = checkDominance(allPotentialPoints, nonDominatedPoints, neighborMovements)
 
         nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
 
-        # Check if any of the NEWLY evaluated points made it into the front
+        # Se copia el nuevo frente.
         currentFrontStates = set(p.state for p in nonDominatedPoints)
-        # An improvement only counts if a NEW state was added that isn't in the "history"
+        # Se valida la mejora del frente si es que hay algun cambio en el frente.
         actualImprovement = any(p.state in currentFrontStates for p in newlyEvaluatedPoints)
         frontChanged = not currentFrontStates.issubset(previousFrontStates)
 
@@ -360,13 +369,16 @@ def onePointParetoSearch(initialState, instance, neiborhoodOperator, solver, lex
             if point.explored == False:
                 noPointToExplore = False
                 break
-
+        
+        # 6. Condicion de paro temprano
+        # Condicion de paro por falta de puntos para explorar
         if noPointToExplore:
             print("No se han encontrado nuevos puntos para explorar, terminando búsqueda.")
             stopped = [True, i]
             nonDominatedPoints = removeDuplicatePoints(nonDominatedPoints)
             break
-
+        
+        # Condicion de paro por falta de mejora
         if actualImprovement and frontChanged:
             iterationwithoutImprovement = 0
             print(f"Iteración {i+1}/{iterationAmount} - Nuevo punto no dominado encontrado! Total en el frente: {len(nonDominatedPoints)}")
@@ -381,7 +393,7 @@ def onePointParetoSearch(initialState, instance, neiborhoodOperator, solver, lex
             print(f"Iteración {i}/{iterationAmount} - No se encontraron nuevos puntos no dominados. Iteraciones sin mejora: {iterationwithoutImprovement}")
             continue
         
-        # 6. Añadir tabu de los movimientos más frecuentes en los nuevos puntos no dominados encontrados
+        # 7. Añadir tabu de los movimientos más frecuentes en los nuevos puntos no dominados encontrados
         sortedTabuRate = sorted(tabuRate.items(), key=lambda x: x[1], reverse=True)
         
         tabuMovesToAdd = {}

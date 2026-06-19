@@ -1,5 +1,4 @@
 import re
-import ast
 from amplpy import AMPL
 import json
 import os
@@ -268,42 +267,42 @@ def invertedGenerationalDistance(epsilonX, epsilonY, heuristicPoints, infraLex, 
     if not epsilonX or not epsilonY or not heuristicPoints:
         return float('inf')
 
-    # Ranges for normalization
+    # Rangos de normalizacion
     range_inf = (infraLex[1] - infraLex[0]) if infraLex[1] > infraLex[0] else 1.0
     range_tra = (transLex[1] - transLex[0]) if transLex[1] > transLex[0] else 1.0
 
-    # 1. Normalize True Front Points
+    # 1. Normalizacion del frente de referencia
     norm_true = [
         ((epsilonX[i] - infraLex[0]) / range_inf, (epsilonY[i] - transLex[0]) / range_tra)
         for i in range(len(epsilonX))
     ]
 
-    # 2. Normalize Heuristic Points
+    # 2. Normalizacion del frente heuristico
     norm_heuristic = [
         ((h.Infrastructure - infraLex[0]) / range_inf, (h.Transport - transLex[0]) / range_tra)
         for h in heuristicPoints
     ]
 
-    # 3. For each point in the TRUE front, find the Euclidean distance to the NEAREST heuristic point
+    # 3. Para cada punto del frente verdadero, se encuentra el punto mas cercano en el frente heuristico
     total_min_dist_sum = 0.0
     for t_point in norm_true:
         min_dist = float('inf')
         for h_point in norm_heuristic:
-            # Euclidean distance (L2 norm)
+            # Distancia euclidiana
             dist = math.sqrt((t_point[0] - h_point[0])**2 + (t_point[1] - h_point[1])**2)
             if dist < min_dist:
                 min_dist = dist
         total_min_dist_sum += min_dist
 
-    # 4. Return the average
+    # 4. Se retorna el promedio
     return total_min_dist_sum / len(norm_true)
 
 def spacing(points):
-    # 1. Extract objectives
+    # 1. Se extraen los puntos
     infra_vals = [p.Infrastructure for p in points]
     trans_vals = [p.Transport for p in points]
 
-    # 2. Normalize objectives to [0, 1] to avoid scale distortion
+    # 2. Se normalizan los objetivos entre 0 y 1
     min_inf, max_inf = min(infra_vals), max(infra_vals)
     min_tra, max_tra = min(trans_vals), max(trans_vals)
     
@@ -315,21 +314,50 @@ def spacing(points):
         for p in points
     ]
 
-    # 3. Find the minimum distance (d_i) from each point to its closest neighbor
+    # 3. Encontrar la distancia de cada punto a su vecino mas cercano
     d_i_list = []
     for i, p1 in enumerate(norm_points):
         min_dist = float('inf')
         for j, p2 in enumerate(norm_points):
             if i == j:
                 continue
-            # Manhattan distance (L1 norm) is traditionally used for Spacing
+            # Distancia de Manhattan
             dist = abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
             if dist < min_dist:
                 min_dist = dist
         d_i_list.append(min_dist)
 
-    # 4. Calculate the standard deviation of these distances
+    # 4. Se calcula la desviacion de las distancias
     mean_d = np.mean(d_i_list)
     spacing = math.sqrt(sum((d_i - mean_d) ** 2 for d_i in d_i_list) / (len(d_i_list) - 1))
     
     return spacing
+
+def loadEpsilonResults(filePath, instanceUrl):
+    if not os.path.exists(filePath):
+        return None
+
+    try:
+        with open(filePath, 'r', encoding='utf-8') as f:
+            allResults = json.load(f)
+            
+        if instanceUrl in allResults:
+            print(f" --- Resultados previos encontrados para: {instanceUrl} --- ")
+            data = allResults[instanceUrl]
+            
+            return {
+                'time': data['metadata']['executionTime'],
+                'hv': data['metadata']['hypervolume'],
+                'solverIterations':data['info']['simplexIterations'],
+                'solverbranchingNodes':data['info']['branchNodes'],
+                'transMin': data['lexicographicPoints']['infraMax']['transp'],
+                'transMax': data['lexicographicPoints']['infraMin']['transp'],
+                'infraMin': data['lexicographicPoints']['infraMin']['infra'],
+                'infraMax': data['lexicographicPoints']['infraMax']['infra'],
+                'paretoX': data['paretoFront']['x'],
+                'paretoY': data['paretoFront']['y']
+            }
+    except Exception as e:
+        print(f"Error al cargar resultados previos: {e}")
+        
+    return None
