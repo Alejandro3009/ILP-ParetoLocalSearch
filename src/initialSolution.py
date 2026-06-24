@@ -1,19 +1,17 @@
-from os import system
-
 import numpy as np
 import random
-from src.utils import getTotalDemand, getStateTuple
+from src.utils import getTotalDemand
 from src.model import modelo
 from amplpy import AMPL
 
 # Movements selection
 
-def generateInitialSolution(selectedStrategy, currentInstance, amountSolutions):
+def generateInitialSolution(selectedStrategy, currentInstance):
     match selectedStrategy:
         case "dualPriorityList":
-            return dualPriorityList(currentInstance, amountSolutions)
+            return dualPriorityList(currentInstance, amount=5)
         case "random":
-            return randomSolution(currentInstance, amountSolutions)
+            return randomSolution(currentInstance, amount=5)
         case _:
             raise ValueError("Estrategia de generación de solución inicial no reconocida.")
         
@@ -55,13 +53,13 @@ def randomSolution(instanceContent, amount = 5):
             
             j += 1
         
-        solution = np.zeros(len(cdsCapacity), dtype=int)
+        solution = [0 for i in cds]
 
         for cd in demandAssignation:
             if demandAssignation[cd] > 0:
                 solution[cd] = 1
         
-        finalSolutions.append(tuple(solution.tolist()))
+        finalSolutions.append(tuple(solution))
 
     return finalSolutions
 
@@ -99,19 +97,14 @@ def getPriorityCostList(instanceContent):
     cdsFixedCost = tempAmpl.getParameter("F").getValues()
     cdsCapacity = tempAmpl.getParameter("Cap").getValues()
 
-    fixed_cost_dict = cdsFixedCost.to_dict()
-    capacity_dict = cdsCapacity.to_dict()
-    
-    tempAmpl.close()
+    cds = tempAmpl.getSet("I").getValues().toList()
 
+    tempAmpl.close() # Cerramos la instancia temporal de AMPL para liberar recursos
+
+    # ordenamos los centros por eficiencia en coste de apertura
     openingEfficiency = []
-    
-    # 2. Iterate through the dictionary keys safely using bracket notation
-    for cd in fixed_cost_dict.keys():
-        cost = fixed_cost_dict[cd]
-        capacity = capacity_dict[cd]
-        
-        openingEfficiency.append((cd, cost / capacity)) # eficiencia = coste fijo / capacidad
+    for cd in cds:
+         openingEfficiency.append((cd, cdsFixedCost[cd] / cdsCapacity[cd])) # eficiencia = coste fijo / capacidad
 
     return sorted(openingEfficiency, key=lambda x: x[1], reverse=True)
 
@@ -155,7 +148,7 @@ def dualPriorityList(instanceContent, amount):
 
         # seleccionamos el centro con la mejor puntuación combinada     
         totalCapacity = 0
-        solution = np.zeros(len(cds), dtype=int)
+        solution = [0 for i in cds]
 
         for cd, _ in combinedEfficiency:
             if totalCapacity >= totalDemand:
@@ -164,6 +157,6 @@ def dualPriorityList(instanceContent, amount):
             totalCapacity += cdsCapacity[cd]
             solution[cd] = 1
 
-        initialStates.append(tuple(solution.tolist()))
+        initialStates.append(tuple(solution))
 
     return initialStates

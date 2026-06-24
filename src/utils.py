@@ -1,34 +1,11 @@
 import re
-import ast
 from amplpy import AMPL
 import json
 import os
 import numpy as np
 import math
-from src.model import cd, client, modelo
-
-def printSummary(cds, clients, K, TH):
-    print("\n" + "="*55)
-    print("              DATA INITIALIZATION SUMMARY")
-    print("="*55)
-    print(f"GLOBAL PARAMS: K = {K}, TH = {TH}")
-    print(f"OBJECT COUNTS: {len(cds)} CDs, {len(clients)} Clients")
-
-    if clients:
-        cl = clients[0]
-        tc_sample = cl.transportCost[:5]
-        print(f"\nSAMPLE CLIENT (ID 0):")
-        print(f"  - Demand: {cl.demand} | Variance: {cl.variance}")
-        print(f"  - TC Array Sample (CDs 0-4): {tc_sample}")
-
-        if any(cost > 0 for cost in cl.transportCost):
-            min_c = min(cl.transportCost)
-            best_cd = cl.transportCost.index(min_c)
-            print(f"  - Result: SUCCESS! Triplets parsed correctly.")
-            print(f"  - Client 0 Best CD: {best_cd} (Cost: {min_c})")
-        else:
-            print("  - WARNING: TC values are still 0.0. Triplets not found.")
-    print("="*55 + "\n")
+import statistics
+from src.model import modelo
 
 def getStateTuple(cdList):
     aux = list(c.open for c in cdList)
@@ -39,6 +16,7 @@ def getStateTuple(cdList):
             aux[i] = 0
     return tuple(aux)
     
+# Funcion para obtener la demanda total de todos los clientes
 def getTotalDemand(instanceContent):
     tempAmpl = AMPL()
     tempAmpl.eval("reset;")
@@ -57,6 +35,7 @@ def getTotalDemand(instanceContent):
         totalVariance += variance[i]
     return totalDemand + totalVariance
 
+#Funcion para obtener el numero de cds
 def parseNumCds(ampl_data):
     match = re.search(r'set\s+I\s*:=\s*(.*?);', ampl_data, re.DOTALL | re.IGNORECASE)
     if match:
@@ -65,15 +44,19 @@ def parseNumCds(ampl_data):
         return len(cdList_ids)
     return 0
 
+# Funcion para calcular el hyper volumen
 def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
+    # Se obtienen los puntos de la heuristica
     pointValues = [(p.Transport, p.Infrastructure) for p in puntos]
 
     if len(puntos) == 0:
         return 0.0
 
+    # Se crean los rangos para la normalizacion
     rangoX = maxX - minX if maxX > minX else 1.0
     rangoY = maxY - minY if maxY > minY else 1.0
 
+    #Se normalizan los puntos
     puntos_norm = []
     for p in pointValues:
         nx = (p[0] - minX) / rangoX
@@ -87,6 +70,7 @@ def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
     refX_norm = 1.0 
     refY_norm = 1.0
 
+    # Se obtiene el hipervolumen
     for i in range(len(sortedPoints)):
         xx = sortedPoints[i][0]
         yy = sortedPoints[i][1]
@@ -106,8 +90,8 @@ def calcularHipervolumen(puntos, minX, maxX, minY, maxY):
 
     return hipervolumen
 
+# Funcion de reporte de la instancia
 def characterizeInstance(instanceContent):
-    """Calculates statistics for the instance to match the report format."""
     tempAmpl = AMPL()
     tempAmpl.eval("reset;")
     tempAmpl.eval(modelo)
@@ -152,7 +136,30 @@ def characterizeInstance(instanceContent):
     ]
     return "\n".join(report)
 
-def exportData(instanceName, instance, amountOfCDs, epsilonData, gottenEpsilon, tplsData):
+# Funcion para generar el reporte final
+def getReportData(experimentRegistry):
+    tplsData = {}
+
+    tplsData['maxHyperVolume'] = max(experimentRegistry['hypervolume'])
+    tplsData['avgHyperVolume'] = statistics.mean(experimentRegistry['hypervolume'])
+    tplsData['minInvertedGenerationalDistance'] = min(experimentRegistry['invertedGenerationalDistance'])
+    tplsData['avgInvertedGenerationalDistance'] = statistics.mean(experimentRegistry['invertedGenerationalDistance'])
+    tplsData['minSpacing'] = min(experimentRegistry['spacing'])
+    tplsData['avgSpacing'] = statistics.mean(experimentRegistry['spacing'])
+
+    tplsData['avgSolverIterations'] = round(statistics.mean(experimentRegistry['amountCallsSolver']), 0)
+    tplsData['avgSolverNodes'] = round(statistics.mean(experimentRegistry['amountNodesSolver']), 0)
+
+    tplsData['avgTime'] = statistics.mean(experimentRegistry['executionTime'])
+    tplsData['avgIterations'] = round(statistics.mean(experimentRegistry['executedIterations']), 0)
+
+    bestFrontIndex = np.argmax(experimentRegistry['hypervolume'])
+    tplsData['bestFront'] = experimentRegistry['points'][bestFrontIndex]
+    tplsData['bestFrontTime'] = experimentRegistry['executionTime'][bestFrontIndex]
+
+    return tplsData
+
+def exportData(instanceName, instance, amountOfCDs, epsilonData, tplsData):
     """Generates a text report identical to the provided examples."""
     report = [
         "==================================================",
@@ -164,177 +171,125 @@ def exportData(instanceName, instance, amountOfCDs, epsilonData, gottenEpsilon, 
         characterizeInstance(instance),
     ]
 
-    if gottenEpsilon:
-        report.extend([
-            "\nRESULTADOS EPSILON-CONSTRAINT",
-            f"Tiempo de ejecución : {epsilonData['time']:.4f} segundos",
-            f"Hipervolumen        : {epsilonData['hv']:.4f}"
-            f"\nPuntos Lexicográficos (Extremos del Frente):",
-            f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
-            f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
-            f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
-            f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
-        ])
+    report.extend([
+        "\nRESULTADOS EPSILON-CONSTRAINT",
+        f"Tiempo de ejecución :         {epsilonData['time']:.4f} segundos",
+        f"Hipervolumen        :         {epsilonData['hv']:.4f}",
+        f"Cantidad de iteraciones:      {epsilonData['solverIterations']}",
+        f"Cantidad de branching Nodes:  {epsilonData['solverbranchingNodes']}"
+        f"\nPuntos Lexicográficos (Extremos del Frente):",
+        f"  - Nadir: Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+        f"  - Transp. Mín   : Transp={epsilonData['transMin']:.2f}, Infra={epsilonData['infraMax']:.2f}",
+        f"  - Infra. Mín    : Transp={epsilonData['transMax']:.2f}, Infra={epsilonData['infraMin']:.2f}",
+        f"\nPuntos del Frente ({len(epsilonData['paretoX'])} steps):"
+    ])
 
-        for i in range(len(epsilonData['paretoX'])):
-            report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
+    for i in range(len(epsilonData['paretoX'])):
+        report.append(f"  Punto {i+1}: Transp={epsilonData['paretoX'][i]:.2f}, Infra={epsilonData['paretoY'][i]:.2f}")
 
     report.append("\nRESULTADOS HEURÍSTICA (TPLS)")
-    if tplsData['stopped']:
-        report.append(f"** El TPLS se detuvo prematuramente en la iteración {tplsData['stoppingIteration']} de {tplsData['amountIterations']} debido a falta de mejora. **")
-    else:
-        report.append(f"** El TPLS completó todas las iteraciones ({tplsData['amountIterations']}) sin detenerse por falta de mejora. **")
-    report.append(f"Tiempo de ejecución : {tplsData['executionTime']:.4f} segundos")
-    if gottenEpsilon:
-        report.append(f"Hipervolumen        : {tplsData['hypervolume']:.4f}")
-        report.append(f"Distancia Generacional Invertida: {tplsData['invertedGenerationalDistance']:.4f}")
-        report.append(f"Espaciado             : {tplsData['spacing']:.4f}")
-    report.append(f"\nFrente de Pareto Final - {len(tplsData['points'])} puntos:")
+    report.append(f"** El TPLS durante la ejecucion de los {tplsData['amountOfExperiments']} experimentos, en promedio tardo en ejecutarse {tplsData['avgIterations']} de {tplsData['maxIterations']} **")
+
+    report.append(f"Tiempo de ejecución :   {tplsData['avgTime']:.4f} segundos")
     
-    for i, p in enumerate(tplsData['points']):
+    report.append(f"Hipervolumen: Promedio = {tplsData['avgHyperVolume']:.4f} - Mejor = {tplsData['maxHyperVolume']:.4f}")
+    report.append(f"Distancia Generacional Invertida: Promedio = {tplsData['avgInvertedGenerationalDistance']:.4f} - Mejor = {tplsData['minInvertedGenerationalDistance']:.4f}")
+    report.append(f"Espaciado: Promedio = {tplsData['avgSpacing']:.4f} - Mejor = {tplsData['minSpacing']:.4f}")
+
+    report.append(f"Cantidad de iteraciones del solver: {tplsData['avgSolverIterations']}")
+    report.append(f"Cantidad de branching Nodes:        {tplsData['avgSolverNodes']}")
+
+    report.append(f"\nFrente de Pareto Final - {len(tplsData['bestFront'])} puntos:")
+    
+    for i, p in enumerate(tplsData['bestFront']):
         report.append(f"  Punto {i+1}: Transp={p.Transport:.2f}, Infra={p.Infrastructure:.2f} | State: {p.state}")
 
-    if gottenEpsilon:
-        report.append("\nCOMPARATIVA ESTADÍSTICA")
-        if epsilonData['hv'] > 0:
-            calidad = (tplsData['hypervolume'] / epsilonData['hv']) * 100
-            report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
-            if tplsData['executionTime'] > 0:
-                aceleracion = epsilonData['time'] / tplsData['executionTime'] 
-                report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
+    report.append("\nCOMPARATIVA ESTADÍSTICA")
+    if epsilonData['hv'] > 0:
+        calidad = (tplsData['maxHyperVolume'] / epsilonData['hv']) * 100
+        report.append(f"Calidad del TPLS vs Exacto : {calidad:.2f}% (Cobertura del Hipervolumen)")
+        if tplsData['bestFrontTime'] > 0:
+            aceleracion = epsilonData['time'] / tplsData['bestFrontTime'] 
+            report.append(f"Aceleración de Tiempo      : El TPLS fue {aceleracion:.2f}x más rápido que Epsilon") 
+
+    ahorro = (1 - (tplsData['avgSolverIterations'] / epsilonData['solverIterations'])) * 100
+    report.append(f"El TPLS uso en promedio un {ahorro}% de las iteraciones en comparacion al epsilon")
+
+    ahorro = (1 - (tplsData['avgSolverNodes'] / epsilonData['solverbranchingNodes'])) * 100
+    report.append(f"El TPLS uso en promedio un {ahorro}% de los nodos en comparacion al epsilon")
 
     fileName = f"Reporte_{instanceName}_using_{tplsData['usedStrategy']}.txt" 
     with open(fileName, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
     print(f"*** Reporte guardado en {fileName} ***") 
 
-def readLexicographicData(filePath):
-    data = {
-        "infraLex": {"x": 0.0, "y": 0.0},
-        "transpLex": {"x": 0.0, "y": 0.0},
-        "paretoX": [],
-        "paretoY": []
-    }
-
-    try:
-        with open(filePath, 'r', encoding='utf-8') as file:
-            content = file.read()
-
-            # 1. Extrair Pontos Lexicográficos usando Regex
-            # Busca o padrão "Punto X... [número]"
-            infraX = re.search(r"Punto X lexicográfico de infraestructura e inventario:\s+([\d\.]+)", content)
-            infraY = re.search(r"Punto Y lexicográfico de infraestructura e inventario:\s+([\d\.]+)", content)
-            transpX = re.search(r"Punto X lexicográfico de transporte:\s+([\d\.]+)", content)
-            transpY = re.search(r"Punto Y lexicográfico de transporte:\s+([\d\.]+)", content)
-
-            if infraX: data["infraLex"]["x"] = float(infraX.group(1))
-            if infraY: data["infraLex"]["y"] = float(infraY.group(1))
-            if transpX: data["transpLex"]["x"] = float(transpX.group(1))
-            if transpY: data["transpLex"]["y"] = float(transpY.group(1))
-
-            # 2. Extrair listas Pareto X e Pareto Y
-            # Busca o padrão "Pareto X: [ ... ]"
-            listX = re.search(r"Pareto X:\s*(\[.*?\])", content)
-            listY = re.search(r"Pareto Y:\s*(\[.*?\])", content)
-
-            if listX:
-                # ast.literal_eval converte a string da lista em uma lista real de Python com segurança
-                data["paretoX"] = ast.literal_eval(listX.group(1))
-            if listY:
-                data["paretoY"] = ast.literal_eval(listY.group(1))
-
-        return data
-
-    except FileNotFoundError:
-        print(f"Error: El archivo {filePath} no fue encontrado.")
-        return None
-    except Exception as e:
-        print(f"Error al procesar el archivo: {e}")
-        return None
-
+# Funcion para cargar la instacia
 def loadDatInstance(name):
-    # Strip out any path characters irace passes to get just the raw name
-    clean_name = name.split('/')[-1].split('\\')[-1]
-    if not clean_name.endswith(".dat"):
-        fileName = f"{clean_name}.dat"
+
+    if not name.endswith(".dat"):
+        fileName = f"{name}.dat"
     else:
-        fileName = clean_name
+        fileName = name
         
-    # Force the path to resolve relative to this specific utils.py file location
-    import os
-    src_dir = os.path.dirname(os.path.abspath(__file__))      # Points to project/src/
-    project_root = os.path.dirname(src_dir)                   # Points to project/
-    filePath = os.path.join(project_root, "instances", fileName)
+    folderName = "instances"
+    filePath = os.path.join(folderName, fileName)
     
     try:
         with open(filePath, 'r', encoding='utf-8') as fileObject:
             fileContent = fileObject.read()
         return fileContent
     except FileNotFoundError:
-        print(f"Error: El archivo '{fileName}' no se encontró en la ruta '{filePath}'.")
+        print(f"Error: El archivo '{fileName}' no se encontró en la carpeta '{folderName}'.")
         return None
     except Exception as errorObject:
         print(f"Error inesperado al leer la instancia: {errorObject}")
         return None
 
-def loadConfig(path="config.json"):
-    import os
-    import json
-    
-    # If a simple relative filename is given, force it to look at the project root
-    if not os.path.isabs(path) and (path == "config.json" or "config.json" in path):
-        src_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(src_dir)
-        path = os.path.join(project_root, "config.json")
-        
-    try:
-        with open(path, 'r', encoding='utf-8') as file:
-            configData = json.load(file)
-        return configData
-    except FileNotFoundError:
-        print(f"Error: No se encontró el archivo de configuración en '{path}'")
-        return None
+# Funcion para cargar la configuracion
+def loadConfig(configPath):
+    with open(configPath, 'r', encoding='utf-8') as file:
+        return json.load(file)
     
 def invertedGenerationalDistance(epsilonX, epsilonY, heuristicPoints, infraLex, transLex):
     if not epsilonX or not epsilonY or not heuristicPoints:
         return float('inf')
 
-    # Ranges for normalization
+    # Rangos de normalizacion
     range_inf = (infraLex[1] - infraLex[0]) if infraLex[1] > infraLex[0] else 1.0
     range_tra = (transLex[1] - transLex[0]) if transLex[1] > transLex[0] else 1.0
 
-    # 1. Normalize True Front Points
+    # 1. Normalizacion del frente de referencia
     norm_true = [
         ((epsilonX[i] - infraLex[0]) / range_inf, (epsilonY[i] - transLex[0]) / range_tra)
         for i in range(len(epsilonX))
     ]
 
-    # 2. Normalize Heuristic Points
+    # 2. Normalizacion del frente heuristico
     norm_heuristic = [
         ((h.Infrastructure - infraLex[0]) / range_inf, (h.Transport - transLex[0]) / range_tra)
         for h in heuristicPoints
     ]
 
-    # 3. For each point in the TRUE front, find the Euclidean distance to the NEAREST heuristic point
+    # 3. Para cada punto del frente verdadero, se encuentra el punto mas cercano en el frente heuristico
     total_min_dist_sum = 0.0
     for t_point in norm_true:
         min_dist = float('inf')
         for h_point in norm_heuristic:
-            # Euclidean distance (L2 norm)
+            # Distancia euclidiana
             dist = math.sqrt((t_point[0] - h_point[0])**2 + (t_point[1] - h_point[1])**2)
             if dist < min_dist:
                 min_dist = dist
         total_min_dist_sum += min_dist
 
-    # 4. Return the average
+    # 4. Se retorna el promedio
     return total_min_dist_sum / len(norm_true)
 
 def spacing(points):
-    # 1. Extract objectives
+    # 1. Se extraen los puntos
     infra_vals = [p.Infrastructure for p in points]
     trans_vals = [p.Transport for p in points]
 
-    # 2. Normalize objectives to [0, 1] to avoid scale distortion
+    # 2. Se normalizan los objetivos entre 0 y 1
     min_inf, max_inf = min(infra_vals), max(infra_vals)
     min_tra, max_tra = min(trans_vals), max(trans_vals)
     
@@ -346,21 +301,50 @@ def spacing(points):
         for p in points
     ]
 
-    # 3. Find the minimum distance (d_i) from each point to its closest neighbor
+    # 3. Encontrar la distancia de cada punto a su vecino mas cercano
     d_i_list = []
     for i, p1 in enumerate(norm_points):
         min_dist = float('inf')
         for j, p2 in enumerate(norm_points):
             if i == j:
                 continue
-            # Manhattan distance (L1 norm) is traditionally used for Spacing
+            # Distancia de Manhattan
             dist = abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
             if dist < min_dist:
                 min_dist = dist
         d_i_list.append(min_dist)
 
-    # 4. Calculate the standard deviation of these distances
+    # 4. Se calcula la desviacion de las distancias
     mean_d = np.mean(d_i_list)
     spacing = math.sqrt(sum((d_i - mean_d) ** 2 for d_i in d_i_list) / (len(d_i_list) - 1))
     
     return spacing
+
+def loadEpsilonResults(filePath, instanceUrl):
+    if not os.path.exists(filePath):
+        return None
+
+    try:
+        with open(filePath, 'r', encoding='utf-8') as f:
+            allResults = json.load(f)
+            
+        if instanceUrl in allResults:
+            print(f" --- Resultados previos encontrados para: {instanceUrl} --- ")
+            data = allResults[instanceUrl]
+            
+            return {
+                'time': data['metadata']['executionTime'],
+                'hv': data['metadata']['hypervolume'],
+                'solverIterations':data['info']['simplexIterations'],
+                'solverbranchingNodes':data['info']['branchNodes'],
+                'transMin': data['lexicographicPoints']['infraMax']['transp'],
+                'transMax': data['lexicographicPoints']['infraMin']['transp'],
+                'infraMin': data['lexicographicPoints']['infraMin']['infra'],
+                'infraMax': data['lexicographicPoints']['infraMax']['infra'],
+                'paretoX': data['paretoFront']['x'],
+                'paretoY': data['paretoFront']['y']
+            }
+    except Exception as e:
+        print(f"Error al cargar resultados previos: {e}")
+        
+    return None
